@@ -4,11 +4,12 @@ from pathlib import Path
 
 import httpx
 import pytest
+import typer
 from rich.console import Console
 from typer.testing import CliRunner
 
 from caniwatch.application.demo import DEMO_CONCERNS, demo_report
-from caniwatch.cli.main import app, choose_movie
+from caniwatch.cli.main import app, choose_movie, watch
 from caniwatch.cli.render import render_report
 from caniwatch.domain.models import Movie
 
@@ -207,10 +208,65 @@ def test_doctor_only_contacts_local_model(monkeypatch):
 def test_ambiguous_title_requires_selection_and_does_not_silently_pick():
     console = Console(file=io.StringIO())
     movies = [Movie(id=1, title="Film", year=2000), Movie(id=2, title="Film", year=2020)]
-    import typer
-
     with pytest.raises(typer.BadParameter, match="Ambiguous"):
         choose_movie(movies, interactive=False, console=console)
+
+
+def test_interactive_concern_prompt_is_hidden(monkeypatch):
+    import importlib
+
+    cli = importlib.import_module("caniwatch.cli.main")
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    observed = []
+
+    def prompt(message, **kwargs):
+        assert kwargs["hide_input"] is True
+        assert kwargs["err"] is True
+        return "claustrophobia, animal harm"
+
+    def live(settings, title, year, concerns, *args, **kwargs):
+        observed.extend(concerns)
+        return demo_report(concerns)
+
+    monkeypatch.setattr(typer, "prompt", prompt)
+    monkeypatch.setattr(cli, "run_live", live)
+    watch(
+        title="Film",
+        year=None,
+        avoid=None,
+        details=False,
+        json_output=False,
+        demo=False,
+        doctor=False,
+        verbose=False,
+        log_file=None,
+    )
+    assert observed == ["claustrophobia", "animal harm"]
+
+
+def test_prompt_cancellation_returns_130(monkeypatch):
+    import importlib
+
+    cli = importlib.import_module("caniwatch.cli.main")
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+
+    def cancel(*args, **kwargs):
+        raise typer.Abort()
+
+    monkeypatch.setattr(typer, "prompt", cancel)
+    with pytest.raises(typer.Exit) as exc:
+        watch(
+            title="Film",
+            year=None,
+            avoid=None,
+            details=False,
+            json_output=False,
+            demo=False,
+            doctor=False,
+            verbose=False,
+            log_file=None,
+        )
+    assert exc.value.exit_code == 130
 
 
 @pytest.mark.parametrize("width", [40, 80, 120])

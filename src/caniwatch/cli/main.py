@@ -184,6 +184,8 @@ def watch(
     except OSError:
         console.print("Could not access a required local file. Check paths and permissions.")
         raise typer.Exit(1) from None
+    except (KeyboardInterrupt, typer.Abort):
+        raise typer.Exit(130) from None
 
 
 def main() -> None:

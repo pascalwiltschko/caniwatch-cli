@@ -90,9 +90,9 @@ class Tavily:
                             sources[url] = source
                     except (ValueError, ValidationError):
                         continue
-            except AppError:
+            except AppError as exc:
                 logger.warning("stage=search_failed request=%d", index)
-                limitations.append(f"Research query {index} failed or was unavailable.")
+                limitations.append(f"Research query {index} failed: {exc}")
                 usage_known = False
 
         selected = sorted(sources.values(), key=lambda source: not source.full_text)[:MAX_SOURCES]

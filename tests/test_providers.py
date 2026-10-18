@@ -217,3 +217,30 @@ def test_model_errors_are_sanitized(response):
     ):
         Ollama(client, settings()).assess(MOVIE, Research(), ["PRIVATE_FEAR"])
     assert "PRIVATE" not in str(exc.value)
+
+
+def test_local_inference_does_not_follow_redirects():
+    hosts = []
+
+    def handle(request):
+        hosts.append(request.url.host)
+        return httpx.Response(307, headers={"Location": "https://remote.example/api/chat"})
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handle), follow_redirects=False) as client,
+        pytest.raises(AppError, match="307"),
+    ):
+        Ollama(client, settings()).assess(MOVIE, Research(), ["PRIVATE_FEAR"])
+    assert hosts == ["127.0.0.1"]
+
+
+def test_search_total_failure_produces_actionable_limitations():
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(401, text="SECRET_KEY"),
+        )
+    ) as client:
+        result = Tavily(client, "SECRET_KEY").research(MOVIE)
+    assert result.sources == []
+    assert any("authentication failed" in item for item in result.limitations)
+    assert "SECRET_KEY" not in result.model_dump_json()
