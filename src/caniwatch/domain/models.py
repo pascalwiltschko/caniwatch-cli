@@ -54,7 +54,9 @@ class Finding(Model):
     comment: str = Field(
         default="",
         max_length=160,
-        description="One short sentence about the evidence, without scene or plot details.",
+        description=(
+            "One friendly sentence in everyday language about the evidence, without scene details."
+        ),
     )
     explanation: str = ""
     evidence: list[Evidence] = Field(default_factory=list)

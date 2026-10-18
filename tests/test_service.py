@@ -50,7 +50,7 @@ def test_rejects_hallucinated_quotes_and_source_ids():
     result = validate_assessment(Assessment(findings=findings), research(), ["spiders", "animals"])
     assert all(f.status == Status.UNKNOWN and not f.evidence for f in result.findings)
     assert all(
-        f.comment == "Insufficient verifiable evidence in the retrieved sources."
+        f.comment == "I couldn't find clear evidence for this in the available sources."
         for f in result.findings
     )
 
@@ -104,7 +104,7 @@ def test_conflict_requires_both_sides_and_promotes_opposing_evidence():
     finding.evidence = evidence
     result = validate_assessment(Assessment(findings=[finding]), research(), ["test"]).findings[0]
     assert result.status == Status.CONFLICTING
-    assert result.comment == "The retrieved evidence includes both presence and absence claims."
+    assert result.comment == "The sources disagree on this, so I'd treat it with caution."
 
 
 @pytest.mark.parametrize("findings", [[], [Finding(concern="extra", status=Status.UNKNOWN)]])
@@ -124,7 +124,10 @@ def test_no_sources_does_not_call_model():
 
     report = screen(Movie(id=1, title="Test"), ["spiders"], EmptyResearch(), NeverAssess())
     assert report.assessment.findings[0].status == Status.UNKNOWN
-    assert report.assessment.findings[0].comment == "No usable sources were retrieved."
+    assert (
+        report.assessment.findings[0].comment
+        == "I couldn't find usable sources to check this for you."
+    )
 
 
 def test_concern_limits_and_deduplication():

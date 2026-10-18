@@ -32,12 +32,35 @@ def assessment_status(report: Report) -> Status:
 
 
 def summary(report: Report) -> str:
-    status = assessment_status(report)
-    if status == Status.PRESENT:
-        return "Relevant content is reported. Review your findings before deciding."
-    if status == Status.UNKNOWN:
-        return "Evidence is incomplete. Unknown does not mean absent."
-    return "Sources report your concerns absent. Research coverage is limited."
+    findings = report.assessment.findings
+    for status in (Status.PRESENT, Status.CONFLICTING, Status.UNKNOWN):
+        concerns = [" ".join(f.concern.split()) for f in findings if f.status == status]
+        if not concerns:
+            continue
+        subject = ", ".join(concerns)
+        if len(subject) > 80:
+            subject = (
+                "one of your concerns"
+                if len(concerns) == 1
+                else f"{len(concerns)} of your concerns"
+            )
+        if status == Status.PRESENT:
+            text = f"I'd skip this one based on what you want to avoid. Sources report {subject}."
+            if any(f.status in {Status.CONFLICTING, Status.UNKNOWN} for f in findings):
+                text += " Some of your other concerns are still unclear."
+            return text
+        if status == Status.CONFLICTING:
+            return (
+                f"I'd hold off on this one. Sources disagree about {subject}, "
+                "so I can't give you a clear go-ahead."
+            )
+        return f"I'd hold off for now. The sources don't give a clear answer about {subject}."
+    if not findings:
+        return "I'd hold off for now. There are no findings to base a recommendation on."
+    return (
+        "This looks like a reasonable pick for you. The sources specifically say the things "
+        "you want to avoid don't occur, though research can miss things."
+    )
 
 
 def public_report(report: Report, details: bool, *, api_usage: bool = False) -> dict[str, Any]:
@@ -101,12 +124,11 @@ def render_report(
     if details and movie.overview:
         facts.append(f"\n\n{movie.overview}")
     assessment = Text(summary(report))
-    assessment.append("\n\nPrivate matching: local. Public research: movie only.", style="dim")
     panels = [
         Panel(facts, title="Film", border_style="dim"),
         Panel(
             assessment,
-            title="Your assessment",
+            title="Your Assessment",
             border_style=LABELS[assessment_status(report)][2],
         ),
     ]

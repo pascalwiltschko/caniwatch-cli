@@ -58,7 +58,13 @@ or metadata failures produce a safe actionable error rather than a fabricated re
 
 ## Presentation and diagnostics
 
-Rich places neutral film facts beside a deterministic assessment summary. Its border is
+Rich places neutral film facts beside “Your Assessment”, a compact recommendation built
+from validated findings. Reported presence leads to advice to skip, conflicting or unknown
+findings to hold off, and explicitly reported absence of every concern to a reasonable
+pick. The summary names the concerns driving the recommendation, using a count when
+their combined names exceed 80 characters. Other unresolved findings are acknowledged
+when content is reported present. JSON uses the same recommendation in `summary`.
+Recommendations do not promise a universally safe viewing. The assessment border is
 red if any concern is reported present or conflicting, yellow if evidence remains unknown,
 and green when all concerns are reported absent. The film panel shows age classifications
 from TMDB's release-date data, appended to the existing movie details request. Available
@@ -79,7 +85,9 @@ usage data is omitted. JSON includes these values only with this option. The ter
 demo always includes the list with a fictional demo label and sample usage; no API calls
 occur.
 
-The model supplies a separate comment of at most 160 characters about evidence coverage,
+The model writes comments and explanations in a calm, conversational voice, addressing
+the reader directly without claiming personal viewing experience. It supplies a separate
+comment of at most 160 characters about evidence coverage,
 instructed to omit scene descriptions and plot details. Validation replaces comments for
 unsupported findings with an uncertainty notice. Default output omits synopsis, scene
 explanations, and excerpts. `--details` explicitly reveals them. Finding labels, comments,

@@ -26,6 +26,12 @@ commas at the prompt.
   JSON includes country codes and classifications; demo classifications are fictional.
   A subdued bullet list under “Disclaimers” groups limitations, the AI disclaimer, and TMDB
   attribution.
+- “Your Assessment” gives a compact recommendation from validated findings: skip when any
+  concern is reported present, hold off for conflicting or unknown findings, and a
+  reasonable pick only when all concerns are reported absent. It names the concerns
+  driving the decision when they fit, using a count for long lists. JSON carries the same
+  advice in `summary`. Comments and explanations use calm, conversational language;
+  uncertainty remains explicit and advice never promises a universally safe viewing.
 - API usage is hidden by default in live terminal reports and JSON. `--api-usage`
   adds a dim “API Usage” list at the bottom with locally counted TMDB requests and
   provider-reported Tavily credits used for this run. Missing usage data is omitted.

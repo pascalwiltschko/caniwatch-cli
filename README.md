@@ -70,7 +70,11 @@ uv run caniwatch terrifier --year 2018 --avoid gore --details
 uv run caniwatch terrifier --year 2018 --avoid gore --api-usage
 ```
 
-Default reports include compact evidence comments but omit the synopsis and scene evidence.
+“Your Assessment” gives a compact recommendation based on your findings: skip the film
+when a concern is reported present, hold off when reports conflict or evidence is missing,
+or consider it a reasonable pick when sources explicitly report all your concerns absent.
+The advice reflects your concerns and the available evidence, not a guarantee.
+Default reports include short, conversational evidence comments but omit the synopsis and scene evidence.
 `--details` reveals them; finding labels, comments, and source titles can themselves reveal
 content. JSON goes to stdout, diagnostics to stderr. Ambiguous titles prompt for selection
 with title, year, and director. Use `--year` or `--director` to narrow the matches;

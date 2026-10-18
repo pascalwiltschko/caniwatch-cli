@@ -28,7 +28,7 @@ def test_demo_runs_offline_and_json_hides_details():
     assert all("text" not in source for source in report["research"]["sources"])
     assert all("explanation" not in f for f in report["assessment"]["findings"])
     assert report["assessment"]["findings"][0]["comment"] == (
-        "The fictional guide explicitly reports this content."
+        "The fictional guide confirms this is in the film, so I'd keep that in mind."
     )
     assert "locked, narrow cellar" not in result.stdout
     assert [f["status"] for f in report["assessment"]["findings"]] == [

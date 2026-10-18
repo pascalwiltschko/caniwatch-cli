@@ -50,15 +50,17 @@ def validate_assessment(
                 Finding(
                     concern=concern,
                     status=Status.UNKNOWN,
-                    comment="Insufficient verifiable evidence in the retrieved sources.",
-                    explanation="Insufficient verifiable evidence in the retrieved sources.",
+                    comment="I couldn't find clear evidence for this in the available sources.",
+                    explanation=(
+                        "I couldn't verify this from the available sources, so it remains unclear."
+                    ),
                 )
             )
         else:
             # Opposing evidence must not be hidden by a model's single-sided label.
             status = Status.CONFLICTING if len(supported) == 2 else finding.status
             comment = (
-                "The retrieved evidence includes both presence and absence claims."
+                "The sources disagree on this, so I'd treat it with caution."
                 if status != finding.status
                 else finding.comment
             )
@@ -92,7 +94,7 @@ def screen(
                 Finding(
                     concern=value,
                     status=Status.UNKNOWN,
-                    comment="No usable sources were retrieved.",
+                    comment="I couldn't find usable sources to check this for you.",
                 )
                 for value in concerns
             ]

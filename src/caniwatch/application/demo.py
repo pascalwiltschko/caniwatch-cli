@@ -41,12 +41,13 @@ class DemoAssessor:
             "claustrophobia": (
                 Status.PRESENT,
                 "Several scenes occur in a locked, narrow cellar.",
-                "Enclosed-space scenes are described in the fictional guide.",
+                "The fictional guide describes a locked, narrow cellar, "
+                "which fits your concern about enclosed spaces.",
             ),
             "animal harm": (
                 Status.ABSENT,
                 "No animals are harmed.",
-                "The fictional guide explicitly reports no animal harm.",
+                "The fictional guide specifically says no animals are harmed.",
             ),
         }
         findings = []
@@ -58,9 +59,10 @@ class DemoAssessor:
                         concern=concern,
                         status=status,
                         comment=(
-                            "The fictional guide explicitly reports this content."
+                            "The fictional guide confirms this is in the film, "
+                            "so I'd keep that in mind."
                             if status == Status.PRESENT
-                            else "The fictional guide explicitly reports this content absent."
+                            else "The fictional guide specifically says this doesn't happen."
                         ),
                         explanation=explanation,
                         evidence=[Evidence(source_id=1, quote=quote, supports=status)],

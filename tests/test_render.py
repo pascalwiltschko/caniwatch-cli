@@ -4,8 +4,71 @@ import pytest
 from rich.console import Console
 
 from caniwatch.application.demo import DEMO_CONCERNS, demo_report
-from caniwatch.cli.render import public_report, render_api_usage, render_report
+from caniwatch.application.service import validate_assessment
+from caniwatch.cli.render import public_report, render_api_usage, render_report, summary
 from caniwatch.domain.models import Assessment, Finding, Status
+
+
+@pytest.mark.parametrize(
+    ("statuses", "verdict", "reason"),
+    [
+        ([Status.PRESENT, Status.ABSENT], "I'd skip", "Sources report concern 0"),
+        ([Status.CONFLICTING, Status.UNKNOWN], "I'd hold off", "disagree about concern 0"),
+        ([Status.UNKNOWN, Status.ABSENT], "I'd hold off", "clear answer about concern 0"),
+        (
+            [Status.ABSENT, Status.ABSENT],
+            "reasonable pick",
+            "you want to avoid don't occur",
+        ),
+        ([], "I'd hold off", "no findings"),
+    ],
+)
+def test_recommendation_explains_the_deciding_findings(statuses, verdict, reason):
+    report = demo_report(DEMO_CONCERNS)
+    report.assessment = Assessment(
+        findings=[
+            Finding(concern=f"concern {index}", status=status)
+            for index, status in enumerate(statuses)
+        ]
+    )
+    advice = summary(report)
+    assert verdict in advice
+    assert reason in advice
+    assert public_report(report, details=False)["summary"] == advice
+
+
+def test_present_content_takes_priority_but_acknowledges_unresolved_findings():
+    report = demo_report(DEMO_CONCERNS)
+    advice = summary(report)
+    assert "I'd skip" in advice
+    assert "claustrophobia" in advice
+    assert "other concerns are still unclear" in advice
+    assert "reasonable pick" not in advice
+
+
+def test_recommendation_uses_validated_findings_instead_of_unsupported_model_claims():
+    report = demo_report(["animal harm"])
+    # Removing the cited source invalidates the model's absence claim.
+    report.research.sources = []
+    report.assessment = validate_assessment(report.assessment, report.research, ["animal harm"])
+    assert "I'd hold off" in summary(report)
+    assert "animal harm" in summary(report)
+    assert "reasonable pick" not in summary(report)
+
+
+@pytest.mark.parametrize("count", [1, 20])
+def test_long_concerns_keep_recommendation_compact(count):
+    report = demo_report(DEMO_CONCERNS)
+    report.assessment = Assessment(
+        findings=[
+            Finding(concern=f"{index} " + "x" * 190, status=Status.PRESENT)
+            for index in range(count)
+        ]
+    )
+    advice = summary(report)
+    assert "I'd skip" in advice
+    assert "one of your concerns" in advice if count == 1 else "20 of your concerns" in advice
+    assert len(advice) < 240
 
 
 def test_classifications_are_compact_in_the_film_panel_and_in_json():
@@ -14,11 +77,14 @@ def test_classifications_are_compact_in_the_film_panel_and_in_json():
     stream = io.StringIO()
     render_report(report, Console(file=stream, width=80), details=False)
     output = stream.getvalue()
+    assert "Your Assessment" in output
+    assert "Private matching:" not in output
+    assert "Public research:" not in output
     assert "Age classifications: FSK 16 · US R · UK 15" in output
     assert (
         output.index(" Film ")
         < output.index("Age classifications")
-        < output.index("Your assessment")
+        < output.index("Your Assessment")
     )
     data = public_report(report, details=False)
     assert data["movie"]["age_classifications"] == {"DE": ["16"], "US": ["R"], "GB": ["15"]}
@@ -34,7 +100,7 @@ def test_long_classification_line_wraps_without_losing_certifications():
     }
     stream = io.StringIO()
     render_report(report, Console(file=stream, width=40), details=False)
-    film = stream.getvalue().split("Your assessment", 1)[0]
+    film = stream.getvalue().split("Your Assessment", 1)[0]
     unwrapped = " ".join(film.replace("│", " ").split())
     assert "Age classifications: FSK 16 / 18 · US R / NC-17 · UK 15 / 18" in unwrapped
 
@@ -79,7 +145,7 @@ def test_panel_colors_follow_verdict_and_film_stays_neutral(statuses, color):
         details=False,
     )
     lines = stream.getvalue().splitlines()
-    verdict_border = next(line for line in lines if "Your assessment" in line)
+    verdict_border = next(line for line in lines if "Your Assessment" in line)
     assert f"\x1b[{color}m" in verdict_border
     film_border = next(line for line in lines if " Film " in line)
     assert "\x1b[2m" in film_border
@@ -101,7 +167,10 @@ def test_comments_are_visible_without_disclosing_scene_details(width, details):
     assert ("locked, narrow cellar" in output) is details
     assert "[1]" in output
     if width >= 60:
-        assert output.index("Finding") < output.index("Comment") < output.index("Sources")
+        header = next(
+            line for line in output.splitlines() if "Finding" in line and "Comment" in line
+        )
+        assert header.index("Finding") < header.index("Comment") < header.index("Sources")
     else:
         assert "Sources: [1]" in output
 
