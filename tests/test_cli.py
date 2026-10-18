@@ -93,6 +93,9 @@ def test_demo_json_api_usage_is_explicit_and_offline():
         ["--demo", "Terrifier"],
         ["--doctor", "--json"],
         ["--doctor", "--api-usage"],
+        ["--doctor", "--director", "Jane Smith"],
+        ["--demo", "--director", "Jane Smith"],
+        ["Film", "--director", "   "],
         ["Film", "--year", "1000"],
     ],
 )
@@ -118,7 +121,8 @@ def test_rejects_remote_model_without_leaking_config(monkeypatch):
 
 
 @pytest.mark.parametrize("api_usage", [False, True])
-def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch, api_usage):
+@pytest.mark.parametrize("director", [None, "  TEST   director  "])
+def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch, api_usage, director):
     monkeypatch.setenv("CANIWATCH_TMDB_TOKEN", "TMDB_SECRET")
     monkeypatch.setenv("CANIWATCH_TAVILY_API_KEY", "TAVILY_SECRET")
     requests = []
@@ -128,6 +132,7 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch, api
     def handle(request):
         requests.append(request)
         if request.url.path.endswith("search/movie"):
+            assert "director" not in request.url.params
             return httpx.Response(
                 200,
                 json={
@@ -136,7 +141,12 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch, api
                             "id": 1,
                             "title": "Test Film",
                             "release_date": "2026-01-01",
-                        }
+                        },
+                        *(
+                            [{"id": 2, "title": "Test Film", "release_date": "2026-01-01"}]
+                            if director
+                            else []
+                        ),
                     ]
                 },
             )
@@ -144,10 +154,20 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch, api
             return httpx.Response(
                 200,
                 json={
-                    "id": 1,
+                    "id": 2 if request.url.path.endswith("/2") else 1,
                     "title": "Test Film",
                     "release_date": "2026-01-01",
                     "runtime": 90,
+                    "credits": {
+                        "crew": [
+                            {
+                                "job": "Director",
+                                "name": "Other Director"
+                                if request.url.path.endswith("/2")
+                                else "Test Director",
+                            }
+                        ]
+                    },
                 },
             )
         if request.url.host == "api.tavily.com":
@@ -215,17 +235,20 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch, api
             "--log-file",
             "test.log",
             *(["--api-usage"] if api_usage else []),
+            *(["--director", director] if director else []),
         ],
     )
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
     assert report["assessment"]["findings"][0]["status"] == "reported_present"
-    # Compatibility, movie search/details, two content searches, assessment.
-    assert len(requests) == 6
+    assert report["movie"]["id"] == 1
+    assert report["movie"]["director"] == "Test Director"
+    # Compatibility, movie search/candidate details, two content searches, assessment.
+    assert len(requests) == (7 if director else 6)
     assert "searches" not in report["research"]
     if api_usage:
         assert report["research"]["credits"] == 2
-        assert report["tmdb_requests"] == 2
+        assert report["tmdb_requests"] == (3 if director else 2)
     else:
         assert "credits" not in report["research"]
         assert "tmdb_requests" not in report

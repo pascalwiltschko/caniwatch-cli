@@ -16,6 +16,7 @@ from rich.text import Text
 
 from caniwatch.application.demo import DEMO_CONCERNS, demo_report
 from caniwatch.application.errors import AppError
+from caniwatch.application.ports import MetadataProvider
 from caniwatch.application.service import normalize_concerns, screen
 from caniwatch.cli.render import public_report, render_report
 from caniwatch.config import Settings
@@ -46,18 +47,48 @@ def save_json(path: Path, content: str) -> None:
 
 def choose_movie(movies: list[Movie], interactive: bool, console: Console) -> Movie:
     if not movies:
-        raise AppError("No matching movie found. Try a different title or year.")
+        raise AppError("No matching movie found. Try a different title, year, or director.")
     if len(movies) == 1:
         return movies[0]
     for index, movie in enumerate(movies[:10], 1):
-        console.print(Text(f"{index}. {movie.title} ({movie.year or 'unknown year'})"))
+        console.print(
+            Text(
+                f"{index}. {movie.title} ({movie.year or 'unknown year'}) · "
+                f"Director: {movie.director or 'unknown'}"
+            )
+        )
     if not interactive:
-        raise typer.BadParameter("Ambiguous movie title. Specify --year or use a terminal.")
+        raise typer.BadParameter(
+            "Ambiguous movie title. Specify --year or --director, or use a terminal."
+        )
     while True:
         selected = typer.prompt("Select movie number", type=int, err=True)
         if 1 <= selected <= min(10, len(movies)):
             return movies[selected - 1]
         console.print("Choose a number from the list.")
+
+
+def resolve_movie(
+    metadata: MetadataProvider,
+    title: str,
+    year: int | None,
+    director: str | None,
+    interactive: bool,
+    console: Console,
+) -> Movie:
+    candidates = metadata.search(title, year)
+    # Only displayed candidates need director details unless filtering the full page.
+    if director is None:
+        candidates = candidates[:10]
+    movies = [metadata.details(movie.id) for movie in candidates]
+    if director is not None:
+        name = " ".join(director.split()).casefold()
+        movies = [
+            movie
+            for movie in movies
+            if movie.director and name in " ".join(movie.director.split()).casefold()
+        ]
+    return choose_movie(movies, interactive, console)
 
 
 def check_doctor(settings: Settings, console: Console) -> bool:
@@ -98,6 +129,7 @@ def run_live(
     interactive: bool,
     console: Console,
     show_progress: bool,
+    director: str | None = None,
 ) -> Report:
     if not settings.tmdb_token.get_secret_value() or not settings.tavily_api_key.get_secret_value():
         raise AppError(
@@ -114,8 +146,7 @@ def run_live(
         if show_progress:
             console.print("Looking up movie…")
         logger.info("stage=metadata_started")
-        movie = choose_movie(metadata.search(title, year), interactive, console)
-        movie = metadata.details(movie.id)
+        movie = resolve_movie(metadata, title, year, director, interactive, console)
         logger.info("stage=metadata_finished")
         if show_progress:
             console.print("Researching general content guides, then assessing locally…")
@@ -164,10 +195,20 @@ def watch(
         bool,
         typer.Option("--api-usage", help="Show TMDB requests and reported Tavily credits used."),
     ] = False,
+    director: Annotated[
+        str | None,
+        typer.Option(
+            "--director", help="Filter by director name (case-insensitive partial match)."
+        ),
+    ] = None,
 ) -> None:
     """Can I watch this? Public movie research, private local assessment."""
     console = Console(stderr=True, markup=False, highlight=False)
     try:
+        if director is not None:
+            director = " ".join(director.split())
+            if not director:
+                raise typer.BadParameter("--director must contain a name.")
         if output is not None and (
             not json_output or (log_file and output.resolve() == log_file.resolve())
         ):
@@ -176,13 +217,15 @@ def watch(
             )
         configure_logging(verbose, log_file)
         if doctor:
-            if title or demo or avoid or json_output or api_usage:
+            if title or demo or avoid or json_output or api_usage or director:
                 raise typer.BadParameter("Use --doctor on its own.")
             raise typer.Exit(0 if check_doctor(Settings(), console) else 1)
         if not title and not demo:
             raise typer.BadParameter("Provide a movie title, or use --demo or --doctor.")
-        if demo and title:
-            raise typer.BadParameter("The demo uses a fictional film; omit the movie title.")
+        if demo and (title or director):
+            raise typer.BadParameter(
+                "The demo uses a fictional film; omit the movie title and --director."
+            )
         concerns = avoid or (DEMO_CONCERNS if demo else [])
         interactive = sys.stdin.isatty() and not json_output
         if not concerns:
@@ -208,6 +251,7 @@ def watch(
                 interactive,
                 console,
                 show_progress=not json_output,
+                director=director,
             )
         )
         if json_output:

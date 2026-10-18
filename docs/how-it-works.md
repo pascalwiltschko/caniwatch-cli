@@ -9,7 +9,17 @@ tag avoids platform-dependent backend selection through the shorter model alias.
 
 TMDB search resolves the title/year. Detailed movie metadata includes runtime, genres,
 director credits, and an overview. This metadata is not treated as proof that a concern
-is absent. The user selects ambiguous matches before any content assessment.
+is absent. Before ambiguous matches are listed, the app loads details for the first ten
+candidates so the list can show director names. The selected details are reused for the
+report.
+
+`--director` loads details for candidates on the returned search page and filters by a
+case-insensitive part of a credited director's name. Whitespace is normalized, and names
+from any co-director can match. Missing director credits do not match a supplied name.
+No additional search pages are fetched. The filter can be combined with `--year`; if
+several matches remain, the user selects from up to ten films. JSON/noninteractive runs
+require a single match. Selection and filtering happen before paid content research,
+and these metadata requests are included in the TMDB usage count.
 
 Tavily receives two fixed queries: title/year plus `parents guide content advisory` and
 `content warnings detailed review`. Each basic search asks for at most four results,

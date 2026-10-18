@@ -48,6 +48,9 @@ and can still create an empty file or truncate an earlier report.
 
 Exit codes: 0 report/healthy doctor; 1 operational/configuration failure; 2 CLI usage,
 missing concerns, or unresolved ambiguity. Unknown content findings still produce exit 0.
+For ambiguous titles, add `--year` or `--director NAME`; director matching is
+case-insensitive and accepts part of a name. A filter with no match exits 1 before
+content research. The interactive selection list includes credited directors.
 
 Run `uv run pytest --cov=caniwatch --cov-report=term-missing` for coverage. Tests use
 HTTPX MockTransport and synthetic source text. No test requires internet or credentials.

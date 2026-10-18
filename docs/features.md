@@ -1,11 +1,15 @@
 # Features and acceptance criteria
 
-`caniwatch TITLE [--year YEAR]` resolves a film, performs fixed public research, prompts
-for private concerns when needed, and renders a report. Repeat `--avoid` for scripted use;
-these arguments can be stored by your shell. Separate concerns with commas at the prompt.
+`caniwatch TITLE [--year YEAR] [--director NAME]` resolves a film, performs fixed public
+research, prompts for private concerns when needed, and renders a report. Repeat `--avoid`
+for scripted use; these arguments can be stored by your shell. Separate concerns with
+commas at the prompt.
 
-- Resolve ambiguous titles through an interactive selection; JSON/noninteractive runs
-  require an unambiguous title/year and never silently choose between matches.
+- Resolve ambiguous titles through an interactive list showing title, year, and director.
+  `--director` filters the returned search page by a case-insensitive part of a credited
+  director's name; missing credits do not match. At most ten matches are listed for
+  selection. JSON/noninteractive runs require a single match and never silently choose
+  between films. `--year` and `--director` can be combined.
 - Research uses two fixed queries, independent of concerns, with at most four deduplicated
   sources. Page text comes from the search API; no autonomous browsing or direct scraping.
 - Findings: reported present, reported absent, conflicting, unknown. Missing evidence

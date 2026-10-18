@@ -63,6 +63,7 @@ multiword titles and concerns:
 
 ```sh
 uv run caniwatch 'The Descent' --year 2005 --avoid claustrophobia --avoid 'animal harm'
+uv run caniwatch 'The Thing' --director 'John Carpenter' --avoid gore
 uv run caniwatch terrifier --year 2018 --avoid gore --json
 uv run caniwatch terrifier --year 2018 --avoid gore --json --output report.json
 uv run caniwatch terrifier --year 2018 --avoid gore --details
@@ -71,9 +72,10 @@ uv run caniwatch terrifier --year 2018 --avoid gore --api-usage
 
 Default reports include compact evidence comments but omit the synopsis and scene evidence.
 `--details` reveals them; finding labels, comments, and source titles can themselves reveal
-content. JSON goes to stdout, diagnostics to stderr. Ambiguous titles prompt for selection;
-noninteractive runs require a narrower title/year match. Reports do not make a universal
-“safe to watch” determination.
+content. JSON goes to stdout, diagnostics to stderr. Ambiguous titles prompt for selection
+with title, year, and director. Use `--year` or `--director` to narrow the matches;
+`--director` accepts a case-insensitive part of a name. JSON and noninteractive runs
+require one matching film. Reports do not make a universal “safe to watch” determination.
 
 API usage is hidden by default. `--api-usage` adds an “API Usage” list showing TMDB
 requests and Tavily's provider-reported credits used for the current run. TMDB requests
