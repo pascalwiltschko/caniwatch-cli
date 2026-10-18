@@ -10,7 +10,7 @@ never sent to the metadata or search provider.
 caniwatch terrifier --year 2018
 ```
 
-Enter your concerns at the hidden local prompt. The tool retrieves general film content
+Enter your concerns at the visible local prompt, separated by commas. The tool retrieves general film content
 guides and reports **reported present**, **reported absent**, **conflicting**, or **unknown**
 for each concern, with source references. It never interprets missing evidence as absence.
 
@@ -58,7 +58,7 @@ uv run caniwatch --help
    uv run caniwatch terrifier --year 2018
    ```
 
-The hidden concern prompt is the privacy-conscious default. For scripting, use repeatable
+The interactive concern prompt shows what you type. For scripting, use repeatable
 `--avoid` arguments (your shell may record them). Quote multiword titles and concerns:
 
 ```sh

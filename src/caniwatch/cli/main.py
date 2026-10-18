@@ -186,7 +186,7 @@ def watch(
                 )
             private_input = typer.prompt(
                 "Concerns (comma-separated; stay on this machine)",
-                hide_input=True,
+                hide_input=False,
                 err=True,
             )
             concerns = private_input.split(",")

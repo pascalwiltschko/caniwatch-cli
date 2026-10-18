@@ -216,7 +216,7 @@ def test_ambiguous_title_requires_selection_and_does_not_silently_pick():
         choose_movie(movies, interactive=False, console=console)
 
 
-def test_interactive_concern_prompt_is_hidden(monkeypatch):
+def test_interactive_concern_prompt_is_visible(monkeypatch):
     import importlib
 
     cli = importlib.import_module("caniwatch.cli.main")
@@ -224,7 +224,7 @@ def test_interactive_concern_prompt_is_hidden(monkeypatch):
     observed = []
 
     def prompt(message, **kwargs):
-        assert kwargs["hide_input"] is True
+        assert kwargs["hide_input"] is False
         assert kwargs["err"] is True
         return "claustrophobia, animal harm"
 

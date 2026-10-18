@@ -2,7 +2,7 @@
 
 `caniwatch TITLE [--year YEAR]` resolves a film, performs fixed public research, prompts
 for private concerns when needed, and renders a report. Repeat `--avoid` for scripted use;
-these arguments can be stored by your shell. Interactive concern input is hidden.
+these arguments can be stored by your shell. Interactive concern input is visible and comma-separated.
 
 - Resolve ambiguous titles through an interactive selection; JSON/noninteractive runs
   require an unambiguous title/year and never silently choose between matches.
