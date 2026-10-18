@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "caniwatch"
+version = "0.1.0"
+description = "Public movie research, private content assessments."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+dependencies = [
+  "httpx>=0.28,<1",
+  "platformdirs>=4,<5",
+  "pydantic>=2.11,<3",
+  "pydantic-settings>=2.9,<3",
+  "rich>=14,<15",
+  "typer>=0.16,<1",
+]
+
+[project.scripts]
+caniwatch = "caniwatch.cli.main:main"
+
+[dependency-groups]
+dev = ["pre-commit>=4,<5", "pytest>=8,<10", "pytest-cov>=6,<8", "ruff>=0.12,<1", "ty>=0.0.1"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = ["live: requires real providers and explicit opt-in"]
+
+[tool.ty.environment]
+python-version = "3.13"

@@ -1,0 +1,30 @@
+version: '3'
+
+tasks:
+  setup:
+    desc: Install locked dependencies and Git hooks
+    cmds:
+      - uv sync --locked
+      - uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+  format:
+    desc: Format and fix lint issues
+    cmds:
+      - uv run ruff check --fix .
+      - uv run ruff format .
+  lint:
+    cmds:
+      - uv run ruff check .
+      - uv run ruff format --check .
+  typecheck:
+    cmds: [uv run ty check]
+  test:
+    cmds: [uv run pytest]
+  check:
+    desc: Run all offline quality checks
+    cmds:
+      - task: lint
+      - task: typecheck
+      - task: test
+  demo:
+    desc: Run the clearly labeled fictional offline demonstration
+    cmds: [uv run caniwatch --demo]
