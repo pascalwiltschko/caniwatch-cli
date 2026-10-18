@@ -143,20 +143,30 @@ def render_report(
             console.print(panel)
 
     table = Table(expand=True, header_style="bold", show_lines=details)
-    table.add_column("Concern", ratio=2)
+    table.add_column("Concern", ratio=2, overflow="fold")
     table.add_column("Finding", width=21, no_wrap=True)
-    table.add_column("Comment", ratio=3)
+    table.add_column("Comment", ratio=3, overflow="fold")
+    if details:
+        table.add_column("Details", ratio=5, overflow="fold")
     table.add_column("Sources", width=7)
     for finding in report.assessment.findings:
         icon, label, color = LABELS[finding.status]
         concern = Text(finding.concern)
         ids = sorted({item.source_id for item in finding.evidence})
-        table.add_row(
+        scene_details = Text(finding.explanation)
+        for item in finding.evidence:
+            if scene_details:
+                scene_details.append("\n\n")
+            scene_details.append(f"[{item.source_id}] “{item.quote}”")
+        row = [
             concern,
             Text(f"{icon} {label}", style=color),
             Text(" ".join(finding.comment.split()) or "—", style="dim"),
-            Text(", ".join(f"[{i}]" for i in ids) or "—"),
-        )
+        ]
+        if details:
+            row.append(scene_details or Text("—"))
+        row.append(Text(", ".join(f"[{i}]" for i in ids) or "—"))
+        table.add_row(*row)
     if console.width < 60:
         for finding in report.assessment.findings:
             icon, label, color = LABELS[finding.status]
@@ -166,15 +176,14 @@ def render_report(
                 console.print(Text(" ".join(finding.comment.split()), style="dim"))
             ids = sorted({item.source_id for item in finding.evidence})
             console.print(Text("Sources: " + (", ".join(f"[{i}]" for i in ids) or "—")))
+            if details:
+                if finding.explanation:
+                    console.print(Text(finding.explanation))
+                for item in finding.evidence:
+                    console.print(Text(f"[{item.source_id}] “{item.quote}”"))
     else:
         console.print(table)
 
-    if details:
-        for finding in report.assessment.findings:
-            if finding.explanation:
-                console.print(Text(f"{finding.concern}: {finding.explanation}"))
-            for item in finding.evidence:
-                console.print(Text(f"[{item.source_id}] {finding.concern}: “{item.quote}”"))
     console.print()
     for source in report.research.sources:
         kind = "page text" if source.full_text else "search excerpt"

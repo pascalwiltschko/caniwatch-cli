@@ -75,7 +75,8 @@ when a concern is reported present, hold off when reports conflict or evidence i
 or consider it a reasonable pick when sources explicitly report all your concerns absent.
 The advice reflects your concerns and the available evidence, not a guarantee.
 Default reports include short, conversational evidence comments but omit the synopsis and scene evidence.
-`--details` reveals them; finding labels, comments, and source titles can themselves reveal
+`--details` reveals the synopsis and adds scene explanations and evidence in a Details
+column (or with each finding on narrow terminals); finding labels, comments, and source titles can themselves reveal
 content. JSON goes to stdout, diagnostics to stderr. Ambiguous titles prompt for selection
 with title, year, and director. Use `--year` or `--director` to narrow the matches;
 `--director` accepts a case-insensitive part of a name. JSON and noninteractive runs

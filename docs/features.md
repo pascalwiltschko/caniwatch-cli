@@ -14,7 +14,8 @@ commas at the prompt.
   sources. Page text comes from the search API; no autonomous browsing or direct scraping.
 - Findings: reported present, reported absent, conflicting, unknown. Missing evidence
   cannot mean absent. Known source IDs and matching excerpts are required for claims.
-- `--details` reveals scene explanations and evidence. Default output hides those details
+- `--details` adds a Details column with scene explanations and evidence. Narrow terminals
+  show these details with each finding in the list. Default output hides those details
   and omits the plot synopsis to reduce spoilers; metadata, finding labels, and compact
   evidence comments remain. Comments describe evidence coverage without scene details.
 - The film panel uses neutral styling. The assessment panel is red for reported present

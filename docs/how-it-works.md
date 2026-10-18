@@ -76,7 +76,9 @@ These classifications do not change concern findings or the summary color. Demo
 classifications are fictional and labeled accordingly.
 
 The table lists concerns, findings, compact comments, and source references, followed by
-clickable/printed source URLs.
+clickable/printed source URLs. With `--details`, a Details column includes each finding's
+scene explanation and supporting excerpts. In narrow terminals, these appear with each
+finding in the list.
 Narrow terminals stack panels and use a list for findings. Limitations, an AI disclaimer,
 and TMDB attribution appear in a subdued bullet list under “Disclaimers”; research usage
 is hidden by default. `--api-usage` adds a separate “API Usage” list last, showing TMDB

@@ -162,15 +162,31 @@ def test_comments_are_visible_without_disclosing_scene_details(width, details):
     stream = io.StringIO()
     render_report(report, Console(file=stream, width=width), details=details)
     output = stream.getvalue()
-    assert "Evidence is explicit." in output
-    assert ("SCENE_DETAIL" in output) is details
-    assert ("locked, narrow cellar" in output) is details
+    if width >= 60:
+        rows = [
+            line.split("│")[1:-1]
+            for line in output.splitlines()
+            if line.count("│") == (6 if details else 5)
+        ]
+        comment = " ".join(row[2].strip() for row in rows)
+        scenes = " ".join(row[3].strip() for row in rows) if details else output
+    else:
+        comment = scenes = " ".join(output.split())
+    assert "Evidence is explicit." in comment
+    assert ("SCENE_DETAIL" in scenes) is details
+    assert ("locked, narrow cellar" in scenes) is details
     assert "[1]" in output
     if width >= 60:
         header = next(
             line for line in output.splitlines() if "Finding" in line and "Comment" in line
         )
         assert header.index("Finding") < header.index("Comment") < header.index("Sources")
+        assert ("Details" in header) is details
+        if details:
+            assert header.index("Comment") < header.index("Details") < header.index("Sources")
+            after_table = output.split("└", 1)[1]
+            assert "SCENE_DETAIL" not in after_table
+            assert "locked, narrow cellar" not in after_table
     else:
         assert "Sources: [1]" in output
 
