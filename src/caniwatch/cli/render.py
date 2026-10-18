@@ -42,6 +42,8 @@ def summary(report: Report) -> str:
 
 def public_report(report: Report, details: bool, *, api_usage: bool = False) -> dict[str, Any]:
     data = report.model_dump(mode="json")
+    if not report.movie.age_classifications:
+        del data["movie"]["age_classifications"]
     del data["research"]["searches"]
     if not api_usage or report.tmdb_requests is None:
         del data["tmdb_requests"]
@@ -88,6 +90,14 @@ def render_report(
     facts.append(" · ".join(movie.genres) or "Genres unavailable", style="bold")
     facts.append(f"\nRuntime: {movie.runtime or 'unknown'} min")
     facts.append(f"\nDirector: {movie.director or 'unknown'}")
+    classifications = [
+        f"{label} {' / '.join(movie.age_classifications[country])}"
+        for country, label in (("DE", "FSK"), ("US", "US"), ("GB", "UK"))
+        if movie.age_classifications.get(country)
+    ]
+    if classifications:
+        label = "Age classifications (fictional demo)" if report.demo else "Age classifications"
+        facts.append(f"\n{label}: " + " · ".join(classifications))
     if details and movie.overview:
         facts.append(f"\n\n{movie.overview}")
     assessment = Text(summary(report))

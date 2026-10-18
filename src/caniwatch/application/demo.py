@@ -79,6 +79,7 @@ def demo_report(concerns: list[str]) -> Report:
         runtime=93,
         genres=["Horror", "Mystery"],
         director="A. Example",
+        age_classifications={"DE": ["16"], "US": ["R"], "GB": ["15"]},
         overview="A caretaker investigates a house whose rooms keep getting smaller.",
     )
     report = screen(movie, concerns, DemoResearch(), DemoAssessor())

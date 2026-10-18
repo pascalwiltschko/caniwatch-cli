@@ -8,6 +8,52 @@ from caniwatch.cli.render import public_report, render_api_usage, render_report
 from caniwatch.domain.models import Assessment, Finding, Status
 
 
+def test_classifications_are_compact_in_the_film_panel_and_in_json():
+    report = demo_report(DEMO_CONCERNS)
+    report.demo = False
+    stream = io.StringIO()
+    render_report(report, Console(file=stream, width=80), details=False)
+    output = stream.getvalue()
+    assert "Age classifications: FSK 16 · US R · UK 15" in output
+    assert (
+        output.index(" Film ")
+        < output.index("Age classifications")
+        < output.index("Your assessment")
+    )
+    data = public_report(report, details=False)
+    assert data["movie"]["age_classifications"] == {"DE": ["16"], "US": ["R"], "GB": ["15"]}
+
+
+def test_long_classification_line_wraps_without_losing_certifications():
+    report = demo_report(DEMO_CONCERNS)
+    report.demo = False
+    report.movie.age_classifications = {
+        "DE": ["16", "18"],
+        "US": ["R", "NC-17"],
+        "GB": ["15", "18"],
+    }
+    stream = io.StringIO()
+    render_report(report, Console(file=stream, width=40), details=False)
+    film = stream.getvalue().split("Your assessment", 1)[0]
+    unwrapped = " ".join(film.replace("│", " ").split())
+    assert "Age classifications: FSK 16 / 18 · US R / NC-17 · UK 15 / 18" in unwrapped
+
+
+def test_missing_classifications_are_omitted():
+    report = demo_report(DEMO_CONCERNS)
+    report.movie.age_classifications = {}
+    stream = io.StringIO()
+    render_report(report, Console(file=stream, width=80), details=False)
+    assert "Age classifications" not in stream.getvalue()
+    assert "age_classifications" not in public_report(report, details=False)["movie"]
+
+
+def test_demo_classifications_are_labeled_fictional():
+    stream = io.StringIO()
+    render_report(demo_report(DEMO_CONCERNS), Console(file=stream, width=80), details=False)
+    assert "Age classifications (fictional demo): FSK 16 · US R · UK 15" in stream.getvalue()
+
+
 @pytest.mark.parametrize(
     ("statuses", "color"),
     [

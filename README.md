@@ -77,6 +77,11 @@ with title, year, and director. Use `--year` or `--director` to narrow the match
 `--director` accepts a case-insensitive part of a name. JSON and noninteractive runs
 require one matching film. Reports do not make a universal “safe to watch” determination.
 
+The film panel shows available age classifications for Germany (FSK), the US, and the UK
+on a compact line that wraps as needed. Distinct classifications for different releases
+are preserved. The values come from TMDB and are included in JSON; missing classifications
+are omitted. The demo uses clearly labeled fictional classifications.
+
 API usage is hidden by default. `--api-usage` adds an “API Usage” list showing TMDB
 requests and Tavily's provider-reported credits used for the current run. TMDB requests
 are counted locally; Tavily credits come from the search responses. Missing usage data

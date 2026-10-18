@@ -161,6 +161,7 @@ def test_tmdb_search_year_and_details():
                     ]
                 },
             )
+        assert request.url.params["append_to_response"] == "credits,release_dates"
         return httpx.Response(
             200,
             json={
@@ -168,6 +169,22 @@ def test_tmdb_search_year_and_details():
                 "title": "Fictional Film",
                 "release_date": "2026-01-01",
                 "runtime": 90,
+                "release_dates": {
+                    "results": [
+                        {"iso_3166_1": "US", "release_dates": [{"certification": " R "}]},
+                        {
+                            "iso_3166_1": "DE",
+                            "release_dates": [
+                                {"certification": "16"},
+                                {"certification": "16"},
+                                {"certification": ""},
+                                {"certification": "18"},
+                            ],
+                        },
+                        {"iso_3166_1": "GB", "release_dates": [{"certification": "15"}]},
+                        {"iso_3166_1": "FR", "release_dates": [{"certification": "12"}]},
+                    ]
+                },
                 "genres": [{"name": "Horror"}],
                 "credits": {
                     "crew": [
@@ -183,7 +200,31 @@ def test_tmdb_search_year_and_details():
         movie = provider.details(1)
         assert movie.director == "A Director"
         assert movie.runtime == 90
+        assert movie.age_classifications == {"US": ["R"], "DE": ["16", "18"], "GB": ["15"]}
         assert provider.requests == 2
+
+
+@pytest.mark.parametrize(
+    "release_dates",
+    [
+        None,
+        {},
+        {"results": None},
+        {"results": [None, {"iso_3166_1": "DE", "release_dates": "bad"}]},
+    ],
+)
+def test_missing_or_invalid_classifications_do_not_prevent_movie_details(release_dates):
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={"id": 1, "title": "Film", "release_dates": release_dates},
+            )
+        )
+    ) as client:
+        movie = TMDB(client, "secret").details(1)
+    assert movie.title == "Film"
+    assert movie.age_classifications == {}
 
 
 @pytest.mark.parametrize("credits", [-1, True, "2", None])

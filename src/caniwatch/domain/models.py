@@ -16,6 +16,7 @@ class Movie(Model):
     runtime: int | None = None
     genres: list[str] = Field(default_factory=list)
     director: str | None = None
+    age_classifications: dict[str, list[str]] = Field(default_factory=dict)
     overview: str = ""
 
 

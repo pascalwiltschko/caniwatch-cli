@@ -60,8 +60,17 @@ or metadata failures produce a safe actionable error rather than a fabricated re
 
 Rich places neutral film facts beside a deterministic assessment summary. Its border is
 red if any concern is reported present or conflicting, yellow if evidence remains unknown,
-and green when all concerns are reported absent. The table lists concerns, findings,
-compact comments, and source references, followed by clickable/printed source URLs.
+and green when all concerns are reported absent. The film panel shows age classifications
+from TMDB's release-date data, appended to the existing movie details request. Available
+classifications for Germany, the US, and the UK appear on one line separated by dots;
+the line wraps naturally in narrow panels. Duplicate certifications are removed, while
+distinct certifications for different releases are preserved, separated by slashes.
+Missing classifications are omitted. JSON includes country codes and classifications.
+These classifications do not change concern findings or the summary color. Demo
+classifications are fictional and labeled accordingly.
+
+The table lists concerns, findings, compact comments, and source references, followed by
+clickable/printed source URLs.
 Narrow terminals stack panels and use a list for findings. Limitations, an AI disclaimer,
 and TMDB attribution appear in a subdued bullet list under “Disclaimers”; research usage
 is hidden by default. `--api-usage` adds a separate “API Usage” list last, showing TMDB

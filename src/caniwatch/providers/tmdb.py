@@ -12,6 +12,30 @@ from caniwatch.providers.http import request_json
 BASE_URL = "https://api.themoviedb.org/3"
 
 
+def _age_classifications(data: Any) -> dict[str, list[str]]:
+    classifications: dict[str, list[str]] = {}
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        return classifications
+    for entry in data["results"]:
+        if not isinstance(entry, dict):
+            continue
+        country = entry.get("iso_3166_1")
+        releases = entry.get("release_dates")
+        if country not in ("DE", "US", "GB") or not isinstance(releases, list):
+            continue
+        for release in releases:
+            if not isinstance(release, dict):
+                continue
+            value = release.get("certification")
+            if not isinstance(value, str) or not value.strip():
+                continue
+            certification = " ".join(value.split())
+            values = classifications.setdefault(country, [])
+            if certification not in values:
+                values.append(certification)
+    return classifications
+
+
 def _movie(data: dict[str, Any]) -> Movie:
     date = str(data.get("release_date") or "")
     return Movie(
@@ -57,7 +81,7 @@ class TMDB:
             provider="TMDB",
             operation="details",
             headers=self.headers,
-            params={"append_to_response": "credits"},
+            params={"append_to_response": "credits,release_dates"},
         )
         try:
             movie = _movie(data)
@@ -69,6 +93,7 @@ class TMDB:
                 if item.get("job") == "Director"
             ]
             movie.director = ", ".join(directors) or None
+            movie.age_classifications = _age_classifications(data.get("release_dates"))
             return Movie.model_validate(movie.model_dump())
         except (KeyError, TypeError, ValueError, AttributeError, ValidationError):
             raise AppError("TMDB returned invalid movie details.") from None

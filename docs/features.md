@@ -20,6 +20,10 @@ commas at the prompt.
 - The film panel uses neutral styling. The assessment panel is red for reported present
   or conflicting content, yellow for unknown findings, and green only when all concerns
   are reported absent. These colors summarize evidence, not universal viewing safety.
+  The film panel includes a compact, wrapping line of available age classifications for
+  Germany (FSK), the US, and the UK. Distinct classifications are retained per country;
+  missing values are omitted. TMDB supplies them in the existing metadata request.
+  JSON includes country codes and classifications; demo classifications are fictional.
   A subdued bullet list under “Disclaimers” groups limitations, the AI disclaimer, and TMDB
   attribution.
 - API usage is hidden by default in live terminal reports and JSON. `--api-usage`
