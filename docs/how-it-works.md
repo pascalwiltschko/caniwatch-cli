@@ -2,6 +2,11 @@
 
 ## Public research
 
+Before public requests, a synthetic local generation probe checks schema enforcement.
+The probe has no movie identity, sources, or private concerns. Unsupported constraints
+stop the run before public research credits are spent. The default explicit GGUF model
+tag avoids platform-dependent backend selection through the shorter model alias.
+
 TMDB search resolves the title/year. Detailed movie metadata includes runtime, genres,
 director credits, and an overview. This metadata is not treated as proof that a concern
 is absent. The user selects ambiguous matches before any content assessment.
@@ -28,14 +33,15 @@ environment variables. Metadata/search services still see movie identity and you
 this is private preference matching, not anonymous or fully offline browsing.
 
 The packaged system prompt treats source text as untrusted and requests a Pydantic-derived
-JSON schema. Temperature is low; responses are bounded. Findings must preserve every
-requested concern exactly once. The application verifies source IDs and verbatim excerpts
-after whitespace normalization. Unsupported claims are downgraded to unknown. Conflicting
+JSON schema. Temperature is low; responses are bounded. Thinking is disabled to reserve
+generation for the structured report. There is no retry using unconstrained output.
+Findings must preserve every requested concern exactly once. The application verifies
+source IDs and verbatim excerpts after whitespace normalization. Unsupported claims are downgraded to unknown. Conflicting
 findings require evidence asserting both presence and absence. This establishes provenance,
 not semantic truth: the model may still misunderstand a quote, source, film edition, or
 subject. No confidence percentages or universal safety verdict are generated.
 
-If all research fails, the app returns unknown findings without calling the model. A
+If all research fails, the app returns unknown findings without requesting a content assessment. A
 partially failed research run retains usable evidence with an explicit limitation. Model
 or metadata failures produce a safe actionable error rather than a fabricated report.
 
@@ -69,4 +75,4 @@ relicense third-party metadata/content or the model. Sources:
 - [TMDB API and attribution](https://developer.themoviedb.org/docs/faq)
 - [Tavily search](https://docs.tavily.com/documentation/api-reference/endpoint/search)
 - [Tavily pricing](https://www.tavily.com/pricing)
-- [Gemma 4 E4B](https://ollama.com/library/gemma4:e4b)
+- [Gemma 4 E4B](https://ollama.com/library/gemma4:e4b-it-q4_K_M)

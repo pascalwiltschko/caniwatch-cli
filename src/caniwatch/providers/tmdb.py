@@ -32,7 +32,13 @@ class TMDB:
         if year is not None:
             params["primary_release_year"] = year
         data = request_json(
-            self.client, "GET", f"{BASE_URL}/search/movie", headers=self.headers, params=params
+            self.client,
+            "GET",
+            f"{BASE_URL}/search/movie",
+            provider="TMDB",
+            operation="search",
+            headers=self.headers,
+            params=params,
         )
         try:
             movies = [_movie(item) for item in data["results"]]
@@ -45,6 +51,8 @@ class TMDB:
             self.client,
             "GET",
             f"{BASE_URL}/movie/{movie_id}",
+            provider="TMDB",
+            operation="details",
             headers=self.headers,
             params={"append_to_response": "credits"},
         )

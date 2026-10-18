@@ -14,10 +14,17 @@ these arguments can be stored by your shell. Interactive concern input is hidden
   and omits the plot synopsis to reduce spoilers; metadata and finding labels remain.
 - `--json` writes one report object to stdout; progress/errors go to stderr. JSON includes
   details only when explicitly requested. `--verbose` increases safe diagnostics.
+- `--json --output PATH` saves the report using atomic replacement after successful
+  completion. Errors leave an existing report untouched or a new destination absent.
+  `--output` requires `--json` and a path different from `--log-file`. Ordinary shell
+  redirection can still create/truncate files before the application runs.
 - `--demo` uses fictional evidence and a fixture assessor; makes no network/model calls
   and is labeled throughout. It demonstrates presentation, not inference accuracy.
 - `--doctor` checks configuration, local model connectivity, and model availability.
-  It does not send API credentials to providers or perform paid searches.
+  It also performs a small synthetic schema-enforcement check against the local model.
+  Live runs perform this check before public research. Unsupported or ignored constraints
+  fail explicitly, without unconstrained retries. No credentials or concerns are used in
+  the probe. Doctor does not send API credentials to providers or perform paid searches.
 
 No accounts, preference persistence, remote inference, hosted tracing, browser automation,
 TV episodes, targeted searches, or persistent research cache in this prototype.

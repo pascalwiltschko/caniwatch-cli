@@ -5,6 +5,7 @@ import logging
 import sys
 from contextlib import nullcontext
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Annotated
 
 import httpx
@@ -26,6 +27,21 @@ from caniwatch.providers.tmdb import TMDB
 
 app = typer.Typer(pretty_exceptions_enable=False, add_completion=False)
 logger = logging.getLogger(__name__)
+
+
+def save_json(path: Path, content: str) -> None:
+    """Replace the destination only after a complete report has been written."""
+    temporary = None
+    try:
+        with NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=".caniwatch-", delete=False
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(content + "\n")
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def choose_movie(movies: list[Movie], interactive: bool, console: Console) -> Movie:
@@ -53,17 +69,23 @@ def check_doctor(settings: Settings, console: Console) -> bool:
             f"{name}: {'configured (not authenticated)' if present else 'missing credential'}"
         )
     try:
-        with httpx.Client(timeout=5, trust_env=False, follow_redirects=False) as client:
-            names = Ollama(client, settings).available_models()
+        with httpx.Client(timeout=180, trust_env=False, follow_redirects=False) as client:
+            ollama = Ollama(client, settings)
+            names = ollama.available_models()
+            if settings.model in names:
+                ollama.check_compatibility()
         if settings.model not in names:
             console.print(
                 "Ollama: reachable; configured model missing. Run ollama pull for your model."
             )
             healthy = False
         else:
-            console.print("Ollama: reachable; configured model available.")
-    except AppError:
-        console.print("Ollama: unavailable. Start Ollama and pull the configured model.")
+            console.print(
+                "Ollama: reachable; configured model available; structured output check passed."
+            )
+    except AppError as exc:
+        logger.error("stage=doctor_failed message=%s", exc)
+        console.print(Text(str(exc)))
         healthy = False
     return healthy
 
@@ -86,6 +108,8 @@ def run_live(
         httpx.Client(timeout=30, follow_redirects=False) as public_client,
         httpx.Client(timeout=180, follow_redirects=False, trust_env=False) as local_client,
     ):
+        assessor = Ollama(local_client, settings)
+        assessor.check_compatibility()
         metadata = TMDB(public_client, settings.tmdb_token.get_secret_value())
         if show_progress:
             console.print("Looking up movie…")
@@ -100,7 +124,7 @@ def run_live(
                 movie,
                 concerns,
                 Tavily(public_client, settings.tavily_api_key.get_secret_value()),
-                Ollama(local_client, settings),
+                assessor,
             )
 
 
@@ -118,22 +142,32 @@ def watch(
         bool, typer.Option(help="Reveal synopsis, scene details, and evidence.")
     ] = False,
     json_output: Annotated[
-        bool, typer.Option("--json", help="Write a JSON report to stdout.")
+        bool, typer.Option("--json", help="Write JSON to stdout, or to --output PATH.")
     ] = False,
     demo: Annotated[
         bool, typer.Option(help="Fictional offline demo; no web or model calls.")
     ] = False,
     doctor: Annotated[
-        bool, typer.Option("--doctor", help="Check credentials and local model.")
+        bool,
+        typer.Option("--doctor", help="Check credentials, local model, and schema enforcement."),
     ] = False,
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="Show safe diagnostics.")
     ] = False,
     log_file: Annotated[Path | None, typer.Option(help="Write rotating operational logs.")] = None,
+    output: Annotated[
+        Path | None, typer.Option("--output", help="Atomically save JSON to PATH; requires --json.")
+    ] = None,
 ) -> None:
     """Can I watch this? Public movie research, private local assessment."""
     console = Console(stderr=True, markup=False, highlight=False)
     try:
+        if output is not None and (
+            not json_output or (log_file and output.resolve() == log_file.resolve())
+        ):
+            raise typer.BadParameter(
+                "--output requires --json and a path different from --log-file."
+            )
         configure_logging(verbose, log_file)
         if doctor:
             if title or demo or avoid or json_output:
@@ -171,17 +205,23 @@ def watch(
             )
         )
         if json_output:
-            typer.echo(json.dumps(public_report(report, details), ensure_ascii=False))
+            content = json.dumps(public_report(report, details), ensure_ascii=False)
+            if output is not None:
+                save_json(output, content)
+            else:
+                typer.echo(content)
         else:
             render_report(report, Console(markup=False, highlight=False), details)
     except ValidationError:
+        logger.error("stage=failed reason=invalid_configuration")
         console.print("Invalid configuration. Check .env and the loopback-only Ollama URL.")
         raise typer.Exit(1) from None
     except AppError as exc:
-        logger.error("stage=failed reason=application_error")
+        logger.error("stage=failed reason=application_error message=%s", exc)
         console.print(Text(str(exc), style="red"))
         raise typer.Exit(1) from None
     except OSError:
+        logger.error("stage=failed reason=local_file_error")
         console.print("Could not access a required local file. Check paths and permissions.")
         raise typer.Exit(1) from None
     except (KeyboardInterrupt, typer.Abort):

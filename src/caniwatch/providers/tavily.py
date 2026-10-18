@@ -33,6 +33,8 @@ class Tavily:
                     self.client,
                     "POST",
                     "https://api.tavily.com/search",
+                    provider="Tavily",
+                    operation="search",
                     headers={"Authorization": f"Bearer {self.api_key}"},
                     json={
                         "query": f'"{movie.title}" {movie.year or ""} {suffix}',

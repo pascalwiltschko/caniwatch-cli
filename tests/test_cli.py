@@ -122,6 +122,8 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch):
             )
         assert request.url.host == "127.0.0.1"
         payload = json.loads(request.content)
+        if "ready" in payload["format"]["properties"]:
+            return httpx.Response(200, json={"message": {"content": '{"ready": true}'}})
         assert "PRIVATE_CONCERN" in payload["messages"][1]["content"]
         return httpx.Response(
             200,
@@ -170,7 +172,7 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch):
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["assessment"]["findings"][0]["status"] == "reported_present"
-    assert len(requests) == 5  # Search, details, two public queries, one local inference.
+    assert len(requests) == 6  # Compatibility, search, details, two queries, assessment.
     for request in requests:
         if request.url.host != "127.0.0.1":
             assert "PRIVATE_CONCERN" not in str(request.url)
@@ -189,7 +191,9 @@ def test_doctor_only_contacts_local_model(monkeypatch):
 
     def handle(request):
         assert request.url.host == "127.0.0.1"
-        return httpx.Response(200, json={"models": [{"name": "gemma4:e4b"}]})
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "gemma4:e4b-it-q4_K_M"}]})
+        return httpx.Response(200, json={"message": {"content": '{"ready": true}'}})
 
     monkeypatch.setattr(
         httpx,
@@ -277,3 +281,128 @@ def test_report_handles_narrow_and_wide_terminals(width):
     assert "OFFLINE DEMO" in output
     assert "claustrophobia" in output
     assert "locked, narrow cellar" not in output
+
+
+def test_json_output_file_is_complete_and_stdout_empty(tmp_path):
+    output = tmp_path / "report.json"
+    output.write_text("old report")
+    result = runner.invoke(app, ["--demo", "--json", "--details", "--output", str(output)])
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    assert json.loads(output.read_text())["demo"] is True
+    assert "locked, narrow cellar" in output.read_text()
+    assert not list(tmp_path.glob(".caniwatch-*"))
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_failed_assessment_preserves_output_and_logs_safe_diagnostics(
+    monkeypatch, tmp_path, existing
+):
+    import importlib
+
+    from caniwatch.application.errors import AppError
+
+    cli = importlib.import_module("caniwatch.cli.main")
+    output = tmp_path / "report.json"
+    if existing:
+        output.write_text("previous report")
+
+    def fail(*args, **kwargs):
+        raise AppError("Ollama assessment failed (HTTP 501). Requested capability is unavailable.")
+
+    monkeypatch.setattr(cli, "run_live", fail)
+    log = tmp_path / "run.log"
+    result = runner.invoke(
+        app,
+        [
+            "Film",
+            "--avoid",
+            "PRIVATE_CONCERN",
+            "--json",
+            "--output",
+            str(output),
+            "--log-file",
+            str(log),
+        ],
+    )
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert "Ollama assessment failed (HTTP 501)" in result.stderr
+    assert "Ollama assessment failed (HTTP 501)" in log.read_text()
+    assert "PRIVATE_CONCERN" not in log.read_text() + result.stderr
+    if existing:
+        assert output.read_text() == "previous report"
+    else:
+        assert not output.exists()
+    assert not list(tmp_path.glob(".caniwatch-*"))
+
+
+def test_output_replace_failure_keeps_existing_report_and_cleans_temporary(monkeypatch, tmp_path):
+    output = tmp_path / "report.json"
+    output.write_text("previous report")
+
+    def fail(*args, **kwargs):
+        raise OSError("PRIVATE filesystem message")
+
+    monkeypatch.setattr(Path, "replace", fail)
+    result = runner.invoke(app, ["--demo", "--json", "--output", str(output)])
+    assert result.exit_code == 1
+    assert output.read_text() == "previous report"
+    assert "PRIVATE" not in result.output
+    assert not list(tmp_path.glob(".caniwatch-*"))
+
+
+def test_output_requires_json(tmp_path):
+    output = tmp_path / "report.json"
+    result = runner.invoke(app, ["--demo", "--output", str(output)])
+    assert result.exit_code == 2
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("doctor", [False, True])
+def test_incompatible_backend_fails_before_public_research(monkeypatch, tmp_path, doctor):
+    monkeypatch.setenv("CANIWATCH_TMDB_TOKEN", "TMDB_SECRET")
+    monkeypatch.setenv("CANIWATCH_TAVILY_API_KEY", "TAVILY_SECRET")
+    original_client = httpx.Client
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        assert request.url.host == "127.0.0.1"
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "gemma4:e4b-it-q4_K_M"}]})
+        assert b"PRIVATE_CONCERN" not in request.content
+        return httpx.Response(501, json={"error": "PRIVATE_BODY"})
+
+    monkeypatch.setattr(
+        httpx, "Client", lambda **kw: original_client(transport=httpx.MockTransport(handle), **kw)
+    )
+    output = tmp_path / "report.json"
+    log = tmp_path / "run.log"
+    arguments = (
+        ["--doctor"]
+        if doctor
+        else ["Film", "--avoid", "PRIVATE_CONCERN", "--json", "--output", str(output)]
+    )
+    result = runner.invoke(app, [*arguments, "--log-file", str(log)])
+    assert result.exit_code == 1, result.output
+    assert not output.exists()
+    assert result.stdout == ""
+    assert "Ollama compatibility failed (HTTP 501)" in result.stderr
+    assert "GGUF" in result.stderr
+    logs = log.read_text()
+    assert "operation=compatibility" in logs
+    assert "http_status=501" in logs
+    assert "PRIVATE" not in logs + result.stderr
+    assert len(requests) == (2 if doctor else 1)
+
+
+def test_report_cannot_also_be_the_log_file(tmp_path):
+    output = tmp_path / "report.json"
+    output.write_text("previous report")
+    result = runner.invoke(
+        app,
+        ["--demo", "--json", "--output", str(output), "--log-file", str(output)],
+    )
+    assert result.exit_code == 2
+    assert output.read_text() == "previous report"

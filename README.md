@@ -7,7 +7,7 @@ the evidence against your concerns using a local open-weight model. Personal con
 never sent to the metadata or search provider.
 
 ```sh
-caniwatch terrifier --year 2016
+caniwatch terrifier --year 2018
 ```
 
 Enter your concerns at the hidden local prompt. The tool retrieves general film content
@@ -38,8 +38,14 @@ uv run caniwatch --help
 1. Install and start [Ollama](https://ollama.com/), then download the model:
 
    ```sh
-   ollama pull gemma4:e4b
+   ollama pull gemma4:e4b-it-q4_K_M
    ```
+
+   Use this explicit GGUF tag rather than `gemma4:e4b`, which can select an MLX backend
+   on Apple Silicon. The workflow requires schema-constrained JSON generation. Some
+   Ollama MLX installations reject or ignore that capability. If you already have a
+   `.env`, set `CANIWATCH_MODEL=gemma4:e4b-it-q4_K_M` there too; environment variables
+   override `.env` and the application default.
 
 2. Obtain a [TMDB API Read Access Token](https://developer.themoviedb.org/docs/getting-started)
    and a [Tavily API key](https://www.tavily.com/). Copy `.env.example` to `.env` and fill in
@@ -49,7 +55,7 @@ uv run caniwatch --help
 
    ```sh
    uv run caniwatch --doctor
-   uv run caniwatch terrifier --year 2016
+   uv run caniwatch terrifier --year 2018
    ```
 
 The hidden concern prompt is the privacy-conscious default. For scripting, use repeatable
@@ -57,14 +63,25 @@ The hidden concern prompt is the privacy-conscious default. For scripting, use r
 
 ```sh
 uv run caniwatch 'The Descent' --year 2005 --avoid claustrophobia --avoid 'animal harm'
-uv run caniwatch terrifier --year 2016 --avoid gore --json
-uv run caniwatch terrifier --year 2016 --avoid gore --details
+uv run caniwatch terrifier --year 2018 --avoid gore --json
+uv run caniwatch terrifier --year 2018 --avoid gore --json --output report.json
+uv run caniwatch terrifier --year 2018 --avoid gore --details
 ```
 
 Default reports omit the synopsis and scene evidence. `--details` reveals them; finding
 labels and source titles can themselves reveal content. JSON goes to stdout, diagnostics
 to stderr. Ambiguous titles prompt for selection; noninteractive runs require a narrower
 title/year match. Reports do not make a universal “safe to watch” determination.
+
+Use `--json --output PATH` to save a complete report atomically: failures leave an existing
+report unchanged and do not create an empty destination. Shell redirection (`> PATH`)
+creates or truncates the file before the CLI starts, so it cannot offer that guarantee.
+The output path must differ from `--log-file`.
+
+Before any public research, a small local generation check tests whether the configured
+model/backend enforces JSON schema constraints. `--doctor` runs the same check without
+contacting the public providers. Unsupported generation fails explicitly; the app never
+falls back to unconstrained text. This checks protocol compatibility, not assessment accuracy.
 
 ## Privacy by architecture
 

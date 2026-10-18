@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     tmdb_token: SecretStr = SecretStr("")
     tavily_api_key: SecretStr = SecretStr("")
     ollama_url: str = "http://127.0.0.1:11434"
-    model: str = Field(default="gemma4:e4b", min_length=1)
+    model: str = Field(default="gemma4:e4b-it-q4_K_M", min_length=1)
 
     @field_validator("ollama_url")
     @classmethod

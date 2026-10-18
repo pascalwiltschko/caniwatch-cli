@@ -189,7 +189,7 @@ def test_ollama_uses_schema_and_only_local_endpoint():
     def handle(request):
         assert request.url.host == "127.0.0.1"
         payload = json.loads(request.content)
-        assert payload["model"] == "gemma4:e4b"
+        assert payload["model"] == "gemma4:e4b-it-q4_K_M"
         assert payload["stream"] is False
         assert payload["format"]["properties"]["findings"]
         assert "tools" not in payload
@@ -244,3 +244,57 @@ def test_search_total_failure_produces_actionable_limitations():
     assert result.sources == []
     assert any("authentication failed" in item for item in result.limitations)
     assert "SECRET_KEY" not in result.model_dump_json()
+
+
+@pytest.mark.parametrize("code", [400, 404, 500, 501])
+def test_ollama_http_errors_do_not_retry_or_leak(code):
+    calls = []
+
+    def handle(request):
+        calls.append(request)
+        return httpx.Response(code, json={"error": "PRIVATE_BODY PRIVATE_FEAR SECRET"})
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handle)) as client,
+        pytest.raises(AppError, match=f"Ollama assessment failed \\(HTTP {code}\\)") as exc,
+    ):
+        Ollama(client, settings()).assess(MOVIE, Research(), ["PRIVATE_FEAR"])
+    assert len(calls) == 1
+    assert "PRIVATE" not in str(exc.value)
+    assert "SECRET" not in str(exc.value)
+
+
+def test_ollama_timeout_has_safe_context():
+    def handle(request):
+        raise httpx.ReadTimeout("PRIVATE transport details", request=request)
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handle)) as client,
+        pytest.raises(AppError, match="Ollama assessment timed out") as exc,
+    ):
+        Ollama(client, settings()).assess(MOVIE, Research(), ["PRIVATE_FEAR"])
+    assert "PRIVATE" not in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "content", ['{"ready": true}', '{"ready": false}', '{"ready": 1}', "PRIVATE_INVALID_RESPONSE"]
+)
+def test_ollama_compatibility_checks_schema_enforcement(content):
+    requests = []
+
+    def handle(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": content}})
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        provider = Ollama(client, settings())
+        if content == '{"ready": true}':
+            provider.check_compatibility()
+        else:
+            with pytest.raises(AppError, match="schema constraints were not enforced") as exc:
+                provider.check_compatibility()
+            assert "PRIVATE" not in str(exc.value)
+    assert len(requests) == 1
+    assert requests[0]["think"] is False
+    assert requests[0]["format"]["properties"]["ready"]["const"] is True
+    assert "PRIVATE" not in json.dumps(requests)
