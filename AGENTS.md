@@ -13,6 +13,12 @@ assessment output. Research requests must be identical for the same movie regard
 concerns. Inference is loopback-only. Never log credentials, concerns, prompts, page text,
 or model responses. Do not enable remote telemetry.
 
-Make small, focused commits as the project progresses. Keep docs current with behavior.
+Ask for explicit approval before creating a commit so the user can test the changes first.
+A direct request to commit authorizes that commit only, not future commits. Keep commits
+small and focused, and keep docs current with behavior.
 Run `task check` before committing completed behavior. Tests must work without credentials,
 internet, or a running model. Do not add frameworks or abstractions without a concrete use.
+
+Write README text, docstrings, and other human-facing documentation around lasting
+behavior, usage, and relevant limitations. Use plain language that stands on its own;
+do not mirror the wording of a user request or emphasize incidental details of a change.

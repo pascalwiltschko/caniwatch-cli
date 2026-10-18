@@ -26,8 +26,8 @@ No persistent research cache is implemented. Review provider terms before adding
 
 ## Private assessment
 
-Concerns are entered through a visible, comma-separated local prompt or repeatable
-`--avoid` arguments.
+Enter concerns as a comma-separated list at the prompt or through repeatable `--avoid`
+arguments.
 Only the local Ollama client receives them. The research function cannot receive them.
 The local endpoint must be a literal loopback IP and must not redirect or use proxy
 environment variables. Metadata/search services still see movie identity and your IP;
