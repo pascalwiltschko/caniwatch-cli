@@ -36,7 +36,7 @@ class TMDB:
         )
         try:
             movies = [_movie(item) for item in data["results"]]
-        except (KeyError, TypeError, ValueError, ValidationError):
+        except (KeyError, TypeError, ValueError, AttributeError, ValidationError):
             raise AppError("TMDB returned invalid movie data.") from None
         return [movie for movie in movies if year is None or movie.year == year]
 

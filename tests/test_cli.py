@@ -1,0 +1,223 @@
+import io
+import json
+from pathlib import Path
+
+import httpx
+import pytest
+from rich.console import Console
+from typer.testing import CliRunner
+
+from caniwatch.application.demo import DEMO_CONCERNS, demo_report
+from caniwatch.cli.main import app, choose_movie
+from caniwatch.cli.render import render_report
+from caniwatch.domain.models import Movie
+
+runner = CliRunner()
+
+
+def test_demo_runs_offline_and_json_hides_details():
+    result = runner.invoke(app, ["--demo", "--json"])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert report["demo"] is True
+    assert report["research"]["searches"] == 0
+    assert "overview" not in report["movie"]
+    assert all("text" not in source for source in report["research"]["sources"])
+    assert all("explanation" not in f for f in report["assessment"]["findings"])
+    assert "locked, narrow cellar" not in result.stdout
+    assert [f["status"] for f in report["assessment"]["findings"]] == [
+        "reported_present",
+        "reported_absent",
+        "unknown",
+    ]
+
+
+def test_details_are_explicit_and_terminal_demo_is_labeled():
+    details = runner.invoke(app, ["--demo", "--json", "--details"])
+    assert details.exit_code == 0
+    assert "locked, narrow cellar" in details.stdout
+    result = runner.invoke(app, ["--demo"])
+    assert result.exit_code == 0
+    assert "OFFLINE DEMO" in result.stdout
+    assert "Reported present" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        [],
+        ["Terrifier"],
+        ["--demo", "Terrifier"],
+        ["--doctor", "--json"],
+        ["Film", "--year", "1000"],
+    ],
+)
+def test_usage_errors(arguments):
+    result = runner.invoke(app, arguments)
+    assert result.exit_code == 2
+
+
+def test_missing_credentials_is_actionable():
+    result = runner.invoke(app, ["Terrifier", "--avoid", "spiders", "--json"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert "CANIWATCH_TMDB_TOKEN" in result.stderr
+    assert "Traceback" not in result.output
+
+
+def test_rejects_remote_model_without_leaking_config(monkeypatch):
+    monkeypatch.setenv("CANIWATCH_OLLAMA_URL", "https://private-fear.example")
+    result = runner.invoke(app, ["Film", "--avoid", "spiders", "--json"])
+    assert result.exit_code == 1
+    assert "loopback" in result.stderr
+    assert "private-fear" not in result.output
+
+
+def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch):
+    monkeypatch.setenv("CANIWATCH_TMDB_TOKEN", "TMDB_SECRET")
+    monkeypatch.setenv("CANIWATCH_TAVILY_API_KEY", "TAVILY_SECRET")
+    requests = []
+    clients = []
+    original_client = httpx.Client
+
+    def handle(request):
+        requests.append(request)
+        if request.url.path.endswith("search/movie"):
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "id": 1,
+                            "title": "Test Film",
+                            "release_date": "2026-01-01",
+                        }
+                    ]
+                },
+            )
+        if request.url.host == "api.themoviedb.org":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 1,
+                    "title": "Test Film",
+                    "release_date": "2026-01-01",
+                    "runtime": 90,
+                },
+            )
+        if request.url.host == "api.tavily.com":
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "title": "Test Film (2026) guide",
+                            "url": "https://example.org/guide",
+                            "raw_content": "Test Film (2026): There are spiders in the cellar.",
+                        }
+                    ],
+                    "usage": {"credits": 1},
+                },
+            )
+        assert request.url.host == "127.0.0.1"
+        payload = json.loads(request.content)
+        assert "PRIVATE_CONCERN" in payload["messages"][1]["content"]
+        return httpx.Response(
+            200,
+            json={
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "findings": [
+                                {
+                                    "concern": "PRIVATE_CONCERN",
+                                    "status": "reported_present",
+                                    "explanation": "Relevant content described.",
+                                    "evidence": [
+                                        {
+                                            "source_id": 1,
+                                            "quote": "There are spiders in the cellar.",
+                                            "supports": "reported_present",
+                                        }
+                                    ],
+                                }
+                            ]
+                        }
+                    )
+                }
+            },
+        )
+
+    def client(**kwargs):
+        clients.append(kwargs)
+        return original_client(transport=httpx.MockTransport(handle), **kwargs)
+
+    monkeypatch.setattr(httpx, "Client", client)
+    result = runner.invoke(
+        app,
+        [
+            "Test Film",
+            "--year",
+            "2026",
+            "--avoid",
+            "PRIVATE_CONCERN",
+            "--json",
+            "--verbose",
+            "--log-file",
+            "test.log",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["assessment"]["findings"][0]["status"] == "reported_present"
+    assert len(requests) == 5  # Search, details, two public queries, one local inference.
+    for request in requests:
+        if request.url.host != "127.0.0.1":
+            assert "PRIVATE_CONCERN" not in str(request.url)
+            assert b"PRIVATE_CONCERN" not in request.content
+    assert clients[1]["trust_env"] is False
+    assert all(client["follow_redirects"] is False for client in clients)
+    logs = Path("test.log").read_text()
+    for private in ("PRIVATE_CONCERN", "TMDB_SECRET", "TAVILY_SECRET", "spiders in the cellar"):
+        assert private not in logs
+        assert private not in result.stderr
+    assert "stage=report_ready" in logs
+
+
+def test_doctor_only_contacts_local_model(monkeypatch):
+    original_client = httpx.Client
+
+    def handle(request):
+        assert request.url.host == "127.0.0.1"
+        return httpx.Response(200, json={"models": [{"name": "gemma4:e4b"}]})
+
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kw: original_client(
+            transport=httpx.MockTransport(handle),
+            **kw,
+        ),
+    )
+    result = runner.invoke(app, ["--doctor"])
+    assert result.exit_code == 1  # Credentials absent, even though model is ready.
+    assert "missing credential" in result.stderr
+    assert "model available" in result.stderr
+
+
+def test_ambiguous_title_requires_selection_and_does_not_silently_pick():
+    console = Console(file=io.StringIO())
+    movies = [Movie(id=1, title="Film", year=2000), Movie(id=2, title="Film", year=2020)]
+    import typer
+
+    with pytest.raises(typer.BadParameter, match="Ambiguous"):
+        choose_movie(movies, interactive=False, console=console)
+
+
+@pytest.mark.parametrize("width", [40, 80, 120])
+def test_report_handles_narrow_and_wide_terminals(width):
+    stream = io.StringIO()
+    render_report(demo_report(DEMO_CONCERNS), Console(file=stream, width=width), details=False)
+    output = stream.getvalue()
+    assert "OFFLINE DEMO" in output
+    assert "claustrophobia" in output
+    assert "locked, narrow cellar" not in output
