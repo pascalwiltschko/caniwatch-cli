@@ -2,160 +2,115 @@
 
 Public movie research. Private content assessments.
 
-A Python CLI that researches a movie using general content-advisory queries, then compares
-the evidence against your concerns using a local open-weight model. Personal concerns are
-never sent to the metadata or search provider.
+A Python CLI that checks movie content against your concerns using public content guides
+and a local model. Findings include source references and distinguish **reported present**,
+**reported absent**, **conflicting**, and **unknown**. Missing evidence never means absence.
 
-```sh
-caniwatch terrifier --year 2018
-```
+Your concerns stay with the local Ollama model; TMDB and Tavily receive only movie details
+and fixed research queries. They can still see which movie you look up. Assessments can
+be incomplete or wrong and do not guarantee a film is suitable for you.
 
-Enter your concerns when prompted, separated by commas. The tool retrieves general film
-content guides and reports **reported present**, **reported absent**, **conflicting**, or **unknown**
-for each concern, with source references. It never interprets missing evidence as absence.
+## Get started
 
-## Try the prototype
-
-Install [uv](https://docs.astral.sh/uv/) and [Task](https://taskfile.dev/), then:
+Install Python 3.13+, [uv](https://docs.astral.sh/uv/), and [Task](https://taskfile.dev/).
+From the checkout, install dependencies and Git hooks, then try the offline demo:
 
 ```sh
 task setup
 task demo
 ```
 
-The offline demo needs no API keys, internet, or running model after dependency installation.
-It uses a **fictional film and fixture assessment**, clearly labeled; it demonstrates the
-workflow and terminal report rather than AI accuracy.
+The demo uses a fictional film and fixture assessment. After setup, it needs no API keys,
+internet, or running model.
 
-```sh
-uv run caniwatch --demo --details
-uv run caniwatch --demo --json
-uv run caniwatch --help
-```
+For real movie checks:
 
-## Live movie checks
-
-1. Install and start [Ollama](https://ollama.com/), then download the model:
+1. Install and start [Ollama](https://ollama.com/), then download a model that supports
+   schema-constrained JSON output. The default is `gemma4:e4b-it-q4_K_M`:
 
    ```sh
    ollama pull gemma4:e4b-it-q4_K_M
    ```
 
-   Use this explicit GGUF tag rather than `gemma4:e4b`, which can select an MLX backend
-   on Apple Silicon. The workflow requires schema-constrained JSON generation. Some
-   Ollama MLX installations reject or ignore that capability. If you already have a
-   `.env`, set `CANIWATCH_MODEL=gemma4:e4b-it-q4_K_M` there too; environment variables
-   override `.env` and the application default.
+   If your hardware supports a larger, more capable model, pull it and set
+   `CANIWATCH_MODEL` to its tag in `.env` or your environment. Use `--doctor` to check
+   compatibility.
 
-2. Obtain a [TMDB API Read Access Token](https://developer.themoviedb.org/docs/getting-started)
-   and a [Tavily API key](https://www.tavily.com/). Copy `.env.example` to `.env` and fill in
-   `CANIWATCH_TMDB_TOKEN` and `CANIWATCH_TAVILY_API_KEY`. Keep credentials on your machine.
-
-3. Check the setup and run a film assessment:
+2. Copy `.env.example` to `.env` and set `CANIWATCH_TMDB_TOKEN` to your
+   [TMDB API Read Access Token](https://developer.themoviedb.org/docs/getting-started)
+   and `CANIWATCH_TAVILY_API_KEY` to your [Tavily API key](https://www.tavily.com/).
+3. Verify your configuration:
 
    ```sh
    uv run caniwatch --doctor
-   uv run caniwatch terrifier --year 2018
    ```
 
-For scripting, use repeatable `--avoid` arguments (your shell may record them). Quote
-multiword titles and concerns:
+See [development and troubleshooting](docs/development.md) for model compatibility and
+configuration details.
+
+## Usage
 
 ```sh
-uv run caniwatch 'The Descent' --year 2005 --avoid claustrophobia --avoid 'animal harm'
-uv run caniwatch 'The Thing' --director 'John Carpenter' --avoid gore
-uv run caniwatch terrifier --year 2018 --avoid gore --json
-uv run caniwatch terrifier --year 2018 --avoid gore --json --output report.json
-uv run caniwatch terrifier --year 2018 --avoid gore --details
-uv run caniwatch terrifier --year 2018 --avoid gore --api-usage
+# Enter comma-separated concerns at the prompt
+uv run caniwatch 'Reanimator'
+
+# Supply concerns directly and narrow the movie by director
+uv run caniwatch 'The Thing' --director 'John Carpenter' --avoid gore --avoid 'animal harm'
+
+# Include scene details and supporting evidence
+uv run caniwatch 'The Descent' --year 2005 --avoid claustrophobia --details
+
+# Save a JSON report; an existing file is preserved if the run fails
+uv run caniwatch 'The Descent' --year 2005 --avoid claustrophobia --json --output report.json
 ```
 
-“Your Assessment” gives a compact recommendation based on your findings: skip the film
-when a concern is reported present, hold off when reports conflict or evidence is missing,
-or consider it a reasonable pick when sources explicitly report all your concerns absent.
-The advice reflects your concerns and the available evidence, not a guarantee.
-Default reports include short, conversational evidence comments but omit the synopsis and scene evidence.
-`--details` reveals the synopsis and adds scene explanations and evidence in a Details
-column (or with each finding on narrow terminals); finding labels, comments, and source titles can themselves reveal
-content. JSON goes to stdout, diagnostics to stderr. Ambiguous titles prompt for selection
-with title, year, and director. Use `--year` or `--director` to narrow the matches;
-`--director` accepts a case-insensitive part of a name. JSON and noninteractive runs
-require one matching film. Reports do not make a universal “safe to watch” determination.
+Prefer the prompt if you do not want concerns recorded in shell history. Default reports
+omit the synopsis and scene evidence, but findings and source titles may still reveal
+content. For JSON or noninteractive use, provide `--avoid` and enough filters to identify
+one movie.
 
-The film panel shows available age classifications for Germany (FSK), the US, and the UK
-on a compact line that wraps as needed. Distinct classifications for different releases
-are preserved. The values come from TMDB and are included in JSON; missing classifications
-are omitted. The demo uses clearly labeled fictional classifications.
+## CLI arguments
 
-API usage is hidden by default. `--api-usage` adds an “API Usage” list showing TMDB
-requests and Tavily's provider-reported credits used for the current run. TMDB requests
-are counted locally; Tavily credits come from the search responses. Missing usage data
-is omitted. The option also includes usage in JSON. The terminal demo always shows
-clearly labeled fictional usage to illustrate the layout; it makes no API requests.
+`caniwatch [TITLE] [OPTIONS]`
 
-Use `--json --output PATH` to save a complete report atomically: failures leave an existing
-report unchanged and do not create an empty destination. Shell redirection (`> PATH`)
-creates or truncates the file before the CLI starts, so it cannot offer that guarantee.
-The output path must differ from `--log-file`.
+| Argument / option | Description |
+| --- | --- |
+| `TITLE` | Movie title; quote titles containing spaces. Omit for `--demo` or `--doctor`. |
+| `--year YEAR` | Filter by release year. |
+| `--director NAME` | Filter by a case-insensitive part of a director's name. |
+| `--avoid CONCERN` | Concern to check; repeat for multiple concerns. Prompts when omitted. |
+| `--details` | Reveal the synopsis, scene explanations, and supporting excerpts. |
+| `--json` | Write JSON to stdout, or to the file selected with `--output`. |
+| `--output PATH` | Atomically save a report; requires `--json` and an existing parent directory. |
+| `--api-usage` | Include TMDB request counts and Tavily's reported credits used. |
+| `--demo` | Run the fictional offline demo without web or model calls. |
+| `--doctor` | Check credentials are configured and test local model compatibility; use on its own. |
+| `--verbose`, `-v` | Show operational diagnostics on stderr. |
+| `--log-file PATH` | Write rotating local operational logs; must differ from `--output`. |
+| `--help` | Show command help. |
 
-Before any public research, a small local generation check tests whether the configured
-model/backend enforces JSON schema constraints. `--doctor` runs the same check without
-contacting the public providers. Unsupported generation fails explicitly; the app never
-falls back to unconstrained text. This checks protocol compatibility, not assessment accuracy.
+## Development
 
-## Privacy by architecture
-
-- **Public research:** TMDB and Tavily receive movie identity and fixed general-advisory
-  queries. They still see your movie interest and network identity.
-- **Private assessment:** only the loopback Ollama endpoint receives your concerns. Remote
-  inference URLs, redirects, and proxy inheritance for local inference are disabled.
-- **No adaptive disclosure:** concerns never affect research queries, page selection, or
-  stopping decisions. Changing concerns produces identical research request payloads.
-- **No remote telemetry or preference storage:** operational logs omit concerns, secrets,
-  prompts, source text, and model responses. Reports are not saved automatically.
-
-The open-weight model and inspectable prompts make this separation possible without
-requiring a hosted inference service. Research still needs internet access. Model downloads
-require storage and sufficient memory. Free search allowances can support a prototype;
-they are not a guarantee of free service forever.
-
-## Development and code
-
-Python 3.13+, Typer, Rich, HTTPX, Pydantic, and Ollama. `uv.lock` pins dependencies.
+`task setup` installs locked dependencies, pre-commit checks, and a pre-push test hook.
 
 ```sh
-task format       # Ruff fixes and formatting
-task check        # Ruff, ty, pytest; entirely offline
-uv run pytest --cov=caniwatch --cov-report=term-missing
-uv run caniwatch --demo --verbose --log-file caniwatch.log
+task format       # Fix lint issues and format code
+task check        # Run Ruff, ty, and pytest
 ```
 
-`task setup` installs pre-commit lint/format/type hooks and a pre-push test hook.
-GitHub Actions runs the same checks. Tests prohibit real network connections and use
-mocked HTTP responses, including a complete CLI-to-provider workflow and privacy checks.
-Real API/model quality requires a separate live smoke test once credentials are configured.
+Checks run offline without credentials or a model. Live API and model quality need
+separate testing with a configured local setup.
 
-The package separates CLI presentation, application orchestration, domain models, and
-provider adapters. Start with:
+Further reading: [code and integration tutorial](docs/tutorial.md),
+[development](docs/development.md), [architecture](docs/architecture.md),
+[features](docs/features.md), [how it works](docs/how-it-works.md), and
+[conventions](docs/conventions.md).
 
-- [Architecture and extension points](docs/architecture.md)
-- [Detailed walkthrough and limitations](docs/how-it-works.md)
-- [Features and acceptance criteria](docs/features.md)
-- [Development and troubleshooting](docs/development.md)
-- [Code and commit conventions](docs/conventions.md)
-- [Contributor/agent entry point](AGENTS.md)
+## License
 
-## Data and limitations
-
-Research is bounded to two basic search requests and four deduplicated sources. Blocked,
-missing, excerpt-only, or contradictory pages reduce coverage. Citation validation checks
-that supporting excerpts occur in retrieved text; it cannot prove that a model interpreted
-them correctly. Film editions may differ. Rare triggers often remain unknown.
-
-No persistent research cache, autonomous agent, direct website scraping, or targeted
-concern searches are included in this first prototype.
+Project code is licensed under [MIT](LICENSE). Third-party content, services, and models
+retain their own terms.
 
 Movie metadata is supplied by [TMDB](https://www.themoviedb.org/). This product uses the
-TMDB API but is not endorsed or certified by TMDB. The prototype uses its non-commercial
-developer offering; commercial use requires reviewing TMDB licensing. Source material and
-models retain their respective terms. Project code is licensed under [MIT](LICENSE).
+TMDB API but is not endorsed or certified by TMDB. Commercial use requires reviewing
+TMDB licensing.
