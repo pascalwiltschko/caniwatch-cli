@@ -4,7 +4,7 @@ import pytest
 from rich.console import Console
 
 from caniwatch.application.demo import DEMO_CONCERNS, demo_report
-from caniwatch.cli.render import render_report
+from caniwatch.cli.render import public_report, render_api_usage, render_report
 from caniwatch.domain.models import Assessment, Finding, Status
 
 
@@ -70,7 +70,7 @@ def test_footer_separates_sources_disclaimers_and_final_usage():
     report.research.searches = 2
     report.research.credits = 2.0
     stream = io.StringIO()
-    render_report(report, Console(file=stream, width=160), details=False)
+    render_report(report, Console(file=stream, width=160), details=False, api_usage=True)
     output = stream.getvalue()
     assert (
         "https://example.org/caniwatch-demo\n\nDisclaimers\n• AI assessments can be wrong."
@@ -80,5 +80,32 @@ def test_footer_separates_sources_disclaimers_and_final_usage():
     assert "\n• Research query 2 failed" in output
     assert "\n• Movie metadata: TMDB. This product uses the TMDB API" in output
     assert "not endorsed or certified by TMDB" in output
-    assert "https://www.themoviedb.org\n\nResearch:" in output
-    assert output.rstrip().endswith("Research: 2 searches · credits: 2.0")
+    assert "https://www.themoviedb.org\n\nAPI Usage:\n" in output
+    assert output.rstrip().endswith("API Usage:\n• TMDB: 2 requests\n• Tavily: 2 credits used")
+
+
+@pytest.mark.parametrize("credits", [2, 0, 0.5, None])
+def test_usage_displays_only_reported_credits(credits):
+    report = demo_report(DEMO_CONCERNS)
+    report.demo = False
+    report.tmdb_requests = None
+    report.research.credits = credits
+    stream = io.StringIO()
+    render_api_usage(report, Console(file=stream, width=80))
+    output = stream.getvalue()
+    data = public_report(report, details=False, api_usage=True)
+    if credits is None:
+        assert output == ""
+        assert "credits" not in data["research"]
+    else:
+        assert output == f"\nAPI Usage:\n• Tavily: {credits:g} credits used\n"
+        assert data["research"]["credits"] == credits
+
+
+def test_tmdb_requests_remain_visible_without_tavily_credit_data():
+    report = demo_report(DEMO_CONCERNS)
+    report.demo = False
+    report.research.credits = None
+    stream = io.StringIO()
+    render_api_usage(report, Console(file=stream, width=80))
+    assert stream.getvalue() == "\nAPI Usage:\n• TMDB: 2 requests\n"

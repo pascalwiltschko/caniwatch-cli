@@ -183,6 +183,17 @@ def test_tmdb_search_year_and_details():
         movie = provider.details(1)
         assert movie.director == "A Director"
         assert movie.runtime == 90
+        assert provider.requests == 2
+
+
+@pytest.mark.parametrize("credits", [-1, True, "2", None])
+def test_search_does_not_report_invalid_credit_costs(credits):
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json={"results": [], "usage": {"credits": credits}})
+        )
+    ) as client:
+        assert Tavily(client, "key").research(MOVIE).credits is None
 
 
 def test_ollama_uses_schema_and_only_local_endpoint():

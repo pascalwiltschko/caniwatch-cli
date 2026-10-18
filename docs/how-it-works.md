@@ -54,7 +54,11 @@ and green when all concerns are reported absent. The table lists concerns, findi
 compact comments, and source references, followed by clickable/printed source URLs.
 Narrow terminals stack panels and use a list for findings. Limitations, an AI disclaimer,
 and TMDB attribution appear in a subdued bullet list under “Disclaimers”; research usage
-appears last with spacing between sources, the footer, and usage.
+is hidden by default. `--api-usage` adds a separate “API Usage” list last, showing TMDB
+requests counted locally and Tavily credits reported by the search responses. Missing
+usage data is omitted. JSON includes these values only with this option. The terminal
+demo always includes the list with a fictional demo label and sample usage; no API calls
+occur.
 
 The model supplies a separate comment of at most 160 characters about evidence coverage,
 instructed to omit scene descriptions and plot details. Validation replaces comments for
@@ -77,7 +81,9 @@ behavior are inspectable. Personal concerns need not go to a hosted inference pr
 Research remains online and uses external APIs. Free allowances can support a prototype
 but are not a promise of indefinite free service. Tavily's basic search currently consumes
 one credit; the normal budget is two search calls per film, with no automatic retries or
-deeper extraction calls. Runtime usage is shown when supplied by the provider.
+deeper extraction calls. `--api-usage` shows the sum of provider-reported credits for the
+current run. Missing or invalid credit data is omitted rather than estimated. The option
+uses the existing search responses and makes no additional requests.
 
 TMDB requires attribution and a commercial license for commercial use; this prototype is
 non-commercial. Tavily has its own service terms. The project code's MIT license does not

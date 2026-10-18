@@ -30,6 +30,8 @@ class DemoResearch:
             limitations=[
                 "OFFLINE DEMO: fictional film, evidence, and fixture assessment. No AI used."
             ],
+            searches=2,
+            credits=2.0,
         )
 
 
@@ -81,4 +83,5 @@ def demo_report(concerns: list[str]) -> Report:
     )
     report = screen(movie, concerns, DemoResearch(), DemoAssessor())
     report.demo = True
+    report.tmdb_requests = 2
     return report

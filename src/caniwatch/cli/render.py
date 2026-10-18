@@ -40,8 +40,13 @@ def summary(report: Report) -> str:
     return "Sources report your concerns absent. Research coverage is limited."
 
 
-def public_report(report: Report, details: bool) -> dict[str, Any]:
+def public_report(report: Report, details: bool, *, api_usage: bool = False) -> dict[str, Any]:
     data = report.model_dump(mode="json")
+    del data["research"]["searches"]
+    if not api_usage or report.tmdb_requests is None:
+        del data["tmdb_requests"]
+    if not api_usage or report.research.credits is None:
+        del data["research"]["credits"]
     for source in data["research"]["sources"]:
         del source["text"]
     if not details:
@@ -56,7 +61,23 @@ def public_report(report: Report, details: bool) -> dict[str, Any]:
     return data
 
 
-def render_report(report: Report, console: Console, details: bool) -> None:
+def render_api_usage(report: Report, console: Console) -> None:
+    credits = report.research.credits
+    requests = report.tmdb_requests
+    if credits is None and requests is None:
+        return
+    console.print()
+    label = "API Usage: (fictional demo)" if report.demo else "API Usage:"
+    console.print(Text(label, style="dim"))
+    if requests is not None:
+        console.print(Text(f"• TMDB: {requests} requests", style="dim"))
+    if credits is not None:
+        console.print(Text(f"• Tavily: {credits:g} credits used", style="dim"))
+
+
+def render_report(
+    report: Report, console: Console, details: bool, *, api_usage: bool = False
+) -> None:
     if report.demo:
         console.print(
             Text("OFFLINE DEMO · Fictional evidence · No AI or web requests", style="yellow")
@@ -136,12 +157,5 @@ def render_report(report: Report, console: Console, details: bool) -> None:
         console.print(Text(f"• {limitation}", style="dim"))
     if not report.demo:
         console.print(Text(f"• {TMDB_ATTRIBUTION}", style="dim"))
-    console.print()
-    credits = report.research.credits
-    console.print(
-        Text(
-            f"Research: {report.research.searches} searches · "
-            f"credits: {credits if credits is not None else 'unavailable'}",
-            style="dim",
-        )
-    )
+    if api_usage or report.demo:
+        render_api_usage(report, console)

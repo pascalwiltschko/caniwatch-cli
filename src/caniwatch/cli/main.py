@@ -120,12 +120,14 @@ def run_live(
         if show_progress:
             console.print("Researching general content guides, then assessing locally…")
         with console.status("Researching and assessing…") if show_progress else nullcontext():
-            return screen(
+            report = screen(
                 movie,
                 concerns,
                 Tavily(public_client, settings.tavily_api_key.get_secret_value()),
                 assessor,
             )
+        report.tmdb_requests = metadata.requests
+        return report
 
 
 @app.command()
@@ -158,6 +160,10 @@ def watch(
     output: Annotated[
         Path | None, typer.Option("--output", help="Atomically save JSON to PATH; requires --json.")
     ] = None,
+    api_usage: Annotated[
+        bool,
+        typer.Option("--api-usage", help="Show TMDB requests and reported Tavily credits used."),
+    ] = False,
 ) -> None:
     """Can I watch this? Public movie research, private local assessment."""
     console = Console(stderr=True, markup=False, highlight=False)
@@ -170,7 +176,7 @@ def watch(
             )
         configure_logging(verbose, log_file)
         if doctor:
-            if title or demo or avoid or json_output:
+            if title or demo or avoid or json_output or api_usage:
                 raise typer.BadParameter("Use --doctor on its own.")
             raise typer.Exit(0 if check_doctor(Settings(), console) else 1)
         if not title and not demo:
@@ -205,13 +211,17 @@ def watch(
             )
         )
         if json_output:
-            content = json.dumps(public_report(report, details), ensure_ascii=False)
+            content = json.dumps(
+                public_report(report, details, api_usage=api_usage), ensure_ascii=False
+            )
             if output is not None:
                 save_json(output, content)
             else:
                 typer.echo(content)
         else:
-            render_report(report, Console(markup=False, highlight=False), details)
+            render_report(
+                report, Console(markup=False, highlight=False), details, api_usage=api_usage
+            )
     except ValidationError:
         logger.error("stage=failed reason=invalid_configuration")
         console.print("Invalid configuration. Check .env and the loopback-only Ollama URL.")

@@ -21,7 +21,9 @@ def test_demo_runs_offline_and_json_hides_details():
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
     assert report["demo"] is True
-    assert report["research"]["searches"] == 0
+    assert "searches" not in report["research"]
+    assert "credits" not in report["research"]
+    assert "tmdb_requests" not in report
     assert "overview" not in report["movie"]
     assert all("text" not in source for source in report["research"]["sources"])
     assert all("explanation" not in f for f in report["assessment"]["findings"])
@@ -46,6 +48,43 @@ def test_details_are_explicit_and_terminal_demo_is_labeled():
     assert "Reported present" in result.stdout
 
 
+@pytest.mark.parametrize("details", [False, True])
+def test_api_usage_requires_explicit_option_for_live_reports(monkeypatch, details):
+    import importlib
+
+    cli = importlib.import_module("caniwatch.cli.main")
+    report = demo_report(DEMO_CONCERNS)
+    report.demo = False
+    monkeypatch.setattr(cli, "run_live", lambda *args, **kwargs: report)
+    arguments = ["Film", "--avoid", "spiders", *(["--details"] if details else [])]
+    hidden = runner.invoke(app, arguments)
+    assert hidden.exit_code == 0, hidden.output
+    assert "API Usage:" not in hidden.stdout
+    assert "credits used" not in hidden.stdout
+    visible = runner.invoke(app, [*arguments, "--api-usage"])
+    assert visible.exit_code == 0, visible.output
+    assert "API Usage:" in visible.stdout
+    assert "API Usage:\n• TMDB: 2 requests\n• Tavily: 2 credits used" in visible.stdout
+
+
+def test_demo_shows_fictional_api_usage_without_extra_option():
+    result = runner.invoke(app, ["--demo"])
+    assert result.exit_code == 0, result.output
+    assert "API Usage: (fictional demo)" in result.stdout
+    assert "• TMDB: 2 requests" in result.stdout
+    assert result.stdout.rstrip().endswith("• Tavily: 2 credits used")
+
+
+def test_demo_json_api_usage_is_explicit_and_offline():
+    result = runner.invoke(app, ["--demo", "--json", "--api-usage"])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert report["demo"] is True
+    assert "searches" not in report["research"]
+    assert report["research"]["credits"] == 2
+    assert report["tmdb_requests"] == 2
+
+
 @pytest.mark.parametrize(
     "arguments",
     [
@@ -53,6 +92,7 @@ def test_details_are_explicit_and_terminal_demo_is_labeled():
         ["Terrifier"],
         ["--demo", "Terrifier"],
         ["--doctor", "--json"],
+        ["--doctor", "--api-usage"],
         ["Film", "--year", "1000"],
     ],
 )
@@ -77,7 +117,8 @@ def test_rejects_remote_model_without_leaking_config(monkeypatch):
     assert "private-fear" not in result.output
 
 
-def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch):
+@pytest.mark.parametrize("api_usage", [False, True])
+def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch, api_usage):
     monkeypatch.setenv("CANIWATCH_TMDB_TOKEN", "TMDB_SECRET")
     monkeypatch.setenv("CANIWATCH_TAVILY_API_KEY", "TAVILY_SECRET")
     requests = []
@@ -110,6 +151,8 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch):
                 },
             )
         if request.url.host == "api.tavily.com":
+            assert request.url.path == "/search"
+            assert request.method == "POST"
             return httpx.Response(
                 200,
                 json={
@@ -171,11 +214,21 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch):
             "--verbose",
             "--log-file",
             "test.log",
+            *(["--api-usage"] if api_usage else []),
         ],
     )
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout)["assessment"]["findings"][0]["status"] == "reported_present"
-    assert len(requests) == 6  # Compatibility, search, details, two queries, assessment.
+    report = json.loads(result.stdout)
+    assert report["assessment"]["findings"][0]["status"] == "reported_present"
+    # Compatibility, movie search/details, two content searches, assessment.
+    assert len(requests) == 6
+    assert "searches" not in report["research"]
+    if api_usage:
+        assert report["research"]["credits"] == 2
+        assert report["tmdb_requests"] == 2
+    else:
+        assert "credits" not in report["research"]
+        assert "tmdb_requests" not in report
     for request in requests:
         if request.url.host != "127.0.0.1":
             assert "PRIVATE_CONCERN" not in str(request.url)
@@ -183,7 +236,12 @@ def test_live_pipeline_with_mocked_http_and_no_private_research(monkeypatch):
     assert clients[1]["trust_env"] is False
     assert all(client["follow_redirects"] is False for client in clients)
     logs = Path("test.log").read_text()
-    for private in ("PRIVATE_CONCERN", "TMDB_SECRET", "TAVILY_SECRET", "spiders in the cellar"):
+    for private in (
+        "PRIVATE_CONCERN",
+        "TMDB_SECRET",
+        "TAVILY_SECRET",
+        "spiders in the cellar",
+    ):
         assert private not in logs
         assert private not in result.stderr
     assert "stage=report_ready" in logs

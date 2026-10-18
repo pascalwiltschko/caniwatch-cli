@@ -66,6 +66,7 @@ uv run caniwatch 'The Descent' --year 2005 --avoid claustrophobia --avoid 'anima
 uv run caniwatch terrifier --year 2018 --avoid gore --json
 uv run caniwatch terrifier --year 2018 --avoid gore --json --output report.json
 uv run caniwatch terrifier --year 2018 --avoid gore --details
+uv run caniwatch terrifier --year 2018 --avoid gore --api-usage
 ```
 
 Default reports include compact evidence comments but omit the synopsis and scene evidence.
@@ -73,6 +74,12 @@ Default reports include compact evidence comments but omit the synopsis and scen
 content. JSON goes to stdout, diagnostics to stderr. Ambiguous titles prompt for selection;
 noninteractive runs require a narrower title/year match. Reports do not make a universal
 “safe to watch” determination.
+
+API usage is hidden by default. `--api-usage` adds an “API Usage” list showing TMDB
+requests and Tavily's provider-reported credits used for the current run. TMDB requests
+are counted locally; Tavily credits come from the search responses. Missing usage data
+is omitted. The option also includes usage in JSON. The terminal demo always shows
+clearly labeled fictional usage to illustrate the layout; it makes no API requests.
 
 Use `--json --output PATH` to save a complete report atomically: failures leave an existing
 report unchanged and do not create an empty destination. Shell redirection (`> PATH`)

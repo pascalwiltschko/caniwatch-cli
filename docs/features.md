@@ -17,7 +17,13 @@ these arguments can be stored by your shell. Separate concerns with commas at th
   or conflicting content, yellow for unknown findings, and green only when all concerns
   are reported absent. These colors summarize evidence, not universal viewing safety.
   A subdued bullet list under “Disclaimers” groups limitations, the AI disclaimer, and TMDB
-  attribution, followed by a separate research usage summary at the bottom.
+  attribution.
+- API usage is hidden by default in live terminal reports and JSON. `--api-usage`
+  adds a dim “API Usage” list at the bottom with locally counted TMDB requests and
+  provider-reported Tavily credits used for this run. Missing usage data is omitted.
+  The option makes no additional requests.
+  The terminal demo always displays clearly labeled fictional usage without API calls;
+  demo JSON includes these with `--api-usage`.
 - `--json` writes one report object to stdout; progress/errors go to stderr. JSON includes
   details only when explicitly requested. `--verbose` increases safe diagnostics.
 - `--json --output PATH` saves the report using atomic replacement after successful

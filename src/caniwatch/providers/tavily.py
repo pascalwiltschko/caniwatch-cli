@@ -1,6 +1,7 @@
 """Fixed, bounded public research with no preference-dependent decisions."""
 
 import logging
+from math import isfinite
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -53,7 +54,12 @@ class Tavily:
                     raise AppError("Search returned invalid results.")
                 usage = data.get("usage", {})
                 amount = usage.get("credits") if isinstance(usage, dict) else None
-                if isinstance(amount, (int, float)):
+                if (
+                    isinstance(amount, (int, float))
+                    and not isinstance(amount, bool)
+                    and isfinite(amount)
+                    and amount >= 0
+                ):
                     credits += amount
                 else:
                     usage_known = False

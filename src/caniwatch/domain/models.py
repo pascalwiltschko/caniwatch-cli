@@ -68,3 +68,4 @@ class Report(Model):
     research: Research
     assessment: Assessment
     demo: bool = False
+    tmdb_requests: int | None = None

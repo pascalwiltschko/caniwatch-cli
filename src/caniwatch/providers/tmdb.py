@@ -26,11 +26,13 @@ class TMDB:
     def __init__(self, client: httpx.Client, token: str):
         self.client = client
         self.headers = {"Authorization": f"Bearer {token}"}
+        self.requests = 0
 
     def search(self, title: str, year: int | None) -> list[Movie]:
         params: dict[str, str | int] = {"query": title, "include_adult": "true"}
         if year is not None:
             params["primary_release_year"] = year
+        self.requests += 1
         data = request_json(
             self.client,
             "GET",
@@ -47,6 +49,7 @@ class TMDB:
         return [movie for movie in movies if year is None or movie.year == year]
 
     def details(self, movie_id: int) -> Movie:
+        self.requests += 1
         data = request_json(
             self.client,
             "GET",
