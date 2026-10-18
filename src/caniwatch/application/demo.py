@@ -55,6 +55,11 @@ class DemoAssessor:
                     Finding(
                         concern=concern,
                         status=status,
+                        comment=(
+                            "The fictional guide explicitly reports this content."
+                            if status == Status.PRESENT
+                            else "The fictional guide explicitly reports this content absent."
+                        ),
                         explanation=explanation,
                         evidence=[Evidence(source_id=1, quote=quote, supports=status)],
                     )

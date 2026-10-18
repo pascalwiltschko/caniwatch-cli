@@ -1,6 +1,5 @@
 """Render safe text and explicitly control scene-detail disclosure."""
 
-from collections import Counter
 from typing import Any
 
 from rich.console import Console
@@ -12,17 +11,31 @@ from caniwatch.domain.models import Report, Status
 
 LABELS = {
     Status.PRESENT: ("!", "Reported present", "red"),
-    Status.ABSENT: ("○", "Reported absent", "cyan"),
-    Status.CONFLICTING: ("±", "Conflicting reports", "yellow"),
+    Status.ABSENT: ("○", "Reported absent", "green"),
+    Status.CONFLICTING: ("±", "Conflicting reports", "red"),
     Status.UNKNOWN: ("?", "Unknown", "yellow"),
 }
 
+TMDB_ATTRIBUTION = (
+    "Movie metadata: TMDB. This product uses the TMDB API but is not endorsed "
+    "or certified by TMDB. https://www.themoviedb.org"
+)
+
+
+def assessment_status(report: Report) -> Status:
+    statuses = {finding.status for finding in report.assessment.findings}
+    if statuses & {Status.PRESENT, Status.CONFLICTING}:
+        return Status.PRESENT
+    if Status.UNKNOWN in statuses or not statuses:
+        return Status.UNKNOWN
+    return Status.ABSENT
+
 
 def summary(report: Report) -> str:
-    counts = Counter(f.status for f in report.assessment.findings)
-    if counts[Status.PRESENT] or counts[Status.CONFLICTING]:
+    status = assessment_status(report)
+    if status == Status.PRESENT:
         return "Relevant content is reported. Review your findings before deciding."
-    if counts[Status.UNKNOWN]:
+    if status == Status.UNKNOWN:
         return "Evidence is incomplete. Unknown does not mean absent."
     return "Sources report your concerns absent. Research coverage is limited."
 
@@ -39,10 +52,7 @@ def public_report(report: Report, details: bool) -> dict[str, Any]:
             del finding["evidence"]
     data["summary"] = summary(report)
     if not report.demo:
-        data["attribution"] = (
-            "Movie metadata: TMDB. This product uses the TMDB API but is not endorsed "
-            "or certified by TMDB. https://www.themoviedb.org"
-        )
+        data["attribution"] = TMDB_ATTRIBUTION
     return data
 
 
@@ -52,8 +62,8 @@ def render_report(report: Report, console: Console, details: bool) -> None:
             Text("OFFLINE DEMO · Fictional evidence · No AI or web requests", style="yellow")
         )
     movie = report.movie
-    console.print(Text(f"{movie.title} ({movie.year or 'year unknown'})", style="bold magenta"))
     facts = Text()
+    facts.append(f"{movie.title} ({movie.year or 'year unknown'})\n", style="bold")
     facts.append(" · ".join(movie.genres) or "Genres unavailable", style="bold")
     facts.append(f"\nRuntime: {movie.runtime or 'unknown'} min")
     facts.append(f"\nDirector: {movie.director or 'unknown'}")
@@ -62,8 +72,12 @@ def render_report(report: Report, console: Console, details: bool) -> None:
     assessment = Text(summary(report))
     assessment.append("\n\nPrivate matching: local. Public research: movie only.", style="dim")
     panels = [
-        Panel(facts, title="Film", border_style="magenta"),
-        Panel(assessment, title="Your assessment", border_style="cyan"),
+        Panel(facts, title="Film", border_style="dim"),
+        Panel(
+            assessment,
+            title="Your assessment",
+            border_style=LABELS[assessment_status(report)][2],
+        ),
     ]
     if console.width >= 90:
         layout = Table.grid(expand=True, padding=(0, 1))
@@ -77,17 +91,17 @@ def render_report(report: Report, console: Console, details: bool) -> None:
 
     table = Table(expand=True, header_style="bold", show_lines=details)
     table.add_column("Concern", ratio=2)
-    table.add_column("Finding", ratio=2)
-    table.add_column("Sources", ratio=1)
+    table.add_column("Finding", width=21, no_wrap=True)
+    table.add_column("Comment", ratio=3)
+    table.add_column("Sources", width=7)
     for finding in report.assessment.findings:
         icon, label, color = LABELS[finding.status]
         concern = Text(finding.concern)
-        if details and finding.explanation:
-            concern.append(f"\n{finding.explanation}", style="dim")
         ids = sorted({item.source_id for item in finding.evidence})
         table.add_row(
             concern,
             Text(f"{icon} {label}", style=color),
+            Text(" ".join(finding.comment.split()) or "—", style="dim"),
             Text(", ".join(f"[{i}]" for i in ids) or "—"),
         )
     if console.width < 60:
@@ -95,21 +109,34 @@ def render_report(report: Report, console: Console, details: bool) -> None:
             icon, label, color = LABELS[finding.status]
             console.print(Text(finding.concern, style="bold"))
             console.print(Text(f"  {icon} {label}", style=color))
-            if details and finding.explanation:
-                console.print(Text(finding.explanation))
+            if finding.comment:
+                console.print(Text(" ".join(finding.comment.split()), style="dim"))
+            ids = sorted({item.source_id for item in finding.evidence})
+            console.print(Text("Sources: " + (", ".join(f"[{i}]" for i in ids) or "—")))
     else:
         console.print(table)
 
     if details:
         for finding in report.assessment.findings:
+            if finding.explanation:
+                console.print(Text(f"{finding.concern}: {finding.explanation}"))
             for item in finding.evidence:
                 console.print(Text(f"[{item.source_id}] {finding.concern}: “{item.quote}”"))
+    console.print()
     for source in report.research.sources:
         kind = "page text" if source.full_text else "search excerpt"
         console.print(Text(f"[{source.id}] {source.title} ({kind})", style="dim"))
         console.print(Text(str(source.url), style="cyan"))
+    if report.research.sources:
+        console.print()
+    console.print(Text("Disclaimers", style="dim"))
+    if not report.demo:
+        console.print(Text("• AI assessments can be wrong.", style="dim"))
     for limitation in report.research.limitations:
         console.print(Text(f"• {limitation}", style="dim"))
+    if not report.demo:
+        console.print(Text(f"• {TMDB_ATTRIBUTION}", style="dim"))
+    console.print()
     credits = report.research.credits
     console.print(
         Text(
@@ -118,11 +145,3 @@ def render_report(report: Report, console: Console, details: bool) -> None:
             style="dim",
         )
     )
-    if not report.demo:
-        console.print(
-            Text(
-                "Movie metadata: TMDB. This product uses the TMDB API but is not endorsed "
-                "or certified by TMDB. https://www.themoviedb.org",
-                style="dim",
-            )
-        )

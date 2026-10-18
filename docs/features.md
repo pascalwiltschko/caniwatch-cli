@@ -11,7 +11,13 @@ these arguments can be stored by your shell. Separate concerns with commas at th
 - Findings: reported present, reported absent, conflicting, unknown. Missing evidence
   cannot mean absent. Known source IDs and matching excerpts are required for claims.
 - `--details` reveals scene explanations and evidence. Default output hides those details
-  and omits the plot synopsis to reduce spoilers; metadata and finding labels remain.
+  and omits the plot synopsis to reduce spoilers; metadata, finding labels, and compact
+  evidence comments remain. Comments describe evidence coverage without scene details.
+- The film panel uses neutral styling. The assessment panel is red for reported present
+  or conflicting content, yellow for unknown findings, and green only when all concerns
+  are reported absent. These colors summarize evidence, not universal viewing safety.
+  A subdued bullet list under “Disclaimers” groups limitations, the AI disclaimer, and TMDB
+  attribution, followed by a separate research usage summary at the bottom.
 - `--json` writes one report object to stdout; progress/errors go to stderr. JSON includes
   details only when explicitly requested. `--verbose` increases safe diagnostics.
 - `--json --output PATH` saves the report using atomic replacement after successful

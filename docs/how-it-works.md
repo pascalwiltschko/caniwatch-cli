@@ -48,11 +48,21 @@ or metadata failures produce a safe actionable error rather than a fabricated re
 
 ## Presentation and diagnostics
 
-Rich places facts beside a deterministic assessment summary, with concern statuses below
-and clickable/printed source URLs. Narrow terminals stack panels. Default output omits
-synopsis, scene descriptions, and excerpts. `--details` explicitly reveals them. Finding
-labels themselves can reveal content; minimal output reduces but cannot guarantee no
-spoilers. JSON follows the same disclosure policy and never includes raw source text.
+Rich places neutral film facts beside a deterministic assessment summary. Its border is
+red if any concern is reported present or conflicting, yellow if evidence remains unknown,
+and green when all concerns are reported absent. The table lists concerns, findings,
+compact comments, and source references, followed by clickable/printed source URLs.
+Narrow terminals stack panels and use a list for findings. Limitations, an AI disclaimer,
+and TMDB attribution appear in a subdued bullet list under “Disclaimers”; research usage
+appears last with spacing between sources, the footer, and usage.
+
+The model supplies a separate comment of at most 160 characters about evidence coverage,
+instructed to omit scene descriptions and plot details. Validation replaces comments for
+unsupported findings with an uncertainty notice. Default output omits synopsis, scene
+explanations, and excerpts. `--details` explicitly reveals them. Finding labels, comments,
+and source titles can still reveal content; minimal output reduces but cannot guarantee
+no spoilers. JSON includes comments and follows the same disclosure policy, without raw
+source text.
 
 Application stages emit counts, elapsed times, and a run ID. Optional local log files
 rotate. Exceptions from providers are translated to controlled messages; arbitrary

@@ -32,6 +32,7 @@ def test_rejects_hallucinated_quotes_and_source_ids():
         Finding(
             concern="spiders",
             status=Status.PRESENT,
+            comment="Unsupported private model claim.",
             evidence=[
                 Evidence(
                     source_id=1, quote="A spider attacks the protagonist.", supports=Status.PRESENT
@@ -48,6 +49,10 @@ def test_rejects_hallucinated_quotes_and_source_ids():
     ]
     result = validate_assessment(Assessment(findings=findings), research(), ["spiders", "animals"])
     assert all(f.status == Status.UNKNOWN and not f.evidence for f in result.findings)
+    assert all(
+        f.comment == "Insufficient verifiable evidence in the retrieved sources."
+        for f in result.findings
+    )
 
 
 def test_accepts_traceable_evidence_and_preserves_order():
@@ -67,6 +72,7 @@ def test_accepts_traceable_evidence_and_preserves_order():
             Finding(
                 concern="spiders",
                 status=Status.PRESENT,
+                comment="The guide explicitly reports this content.",
                 evidence=[
                     Evidence(
                         source_id=1,
@@ -79,6 +85,7 @@ def test_accepts_traceable_evidence_and_preserves_order():
     )
     result = validate_assessment(assessment, research(), ["spiders", "animals"])
     assert [f.status for f in result.findings] == [Status.PRESENT, Status.ABSENT]
+    assert result.findings[0].comment == "The guide explicitly reports this content."
 
 
 def test_conflict_requires_both_sides_and_promotes_opposing_evidence():
@@ -93,11 +100,11 @@ def test_conflict_requires_both_sides_and_promotes_opposing_evidence():
         == Status.UNKNOWN
     )
     finding.status = Status.PRESENT
+    finding.comment = "The sources agree."
     finding.evidence = evidence
-    assert (
-        validate_assessment(Assessment(findings=[finding]), research(), ["test"]).findings[0].status
-        == Status.CONFLICTING
-    )
+    result = validate_assessment(Assessment(findings=[finding]), research(), ["test"]).findings[0]
+    assert result.status == Status.CONFLICTING
+    assert result.comment == "The retrieved evidence includes both presence and absence claims."
 
 
 @pytest.mark.parametrize("findings", [[], [Finding(concern="extra", status=Status.UNKNOWN)]])
@@ -117,6 +124,7 @@ def test_no_sources_does_not_call_model():
 
     report = screen(Movie(id=1, title="Test"), ["spiders"], EmptyResearch(), NeverAssess())
     assert report.assessment.findings[0].status == Status.UNKNOWN
+    assert report.assessment.findings[0].comment == "No usable sources were retrieved."
 
 
 def test_concern_limits_and_deduplication():

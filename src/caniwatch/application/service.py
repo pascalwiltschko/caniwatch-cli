@@ -50,13 +50,21 @@ def validate_assessment(
                 Finding(
                     concern=concern,
                     status=Status.UNKNOWN,
+                    comment="Insufficient verifiable evidence in the retrieved sources.",
                     explanation="Insufficient verifiable evidence in the retrieved sources.",
                 )
             )
         else:
             # Opposing evidence must not be hidden by a model's single-sided label.
             status = Status.CONFLICTING if len(supported) == 2 else finding.status
-            validated.append(finding.model_copy(update={"status": status, "evidence": valid}))
+            comment = (
+                "The retrieved evidence includes both presence and absence claims."
+                if status != finding.status
+                else finding.comment
+            )
+            validated.append(
+                finding.model_copy(update={"status": status, "comment": comment, "evidence": valid})
+            )
     return Assessment(findings=validated)
 
 
@@ -80,7 +88,14 @@ def screen(
         )
     else:
         assessment = Assessment(
-            findings=[Finding(concern=value, status=Status.UNKNOWN) for value in concerns]
+            findings=[
+                Finding(
+                    concern=value,
+                    status=Status.UNKNOWN,
+                    comment="No usable sources were retrieved.",
+                )
+                for value in concerns
+            ]
         )
     logger.info("stage=report_ready elapsed_ms=%d", (perf_counter() - start) * 1000)
     return Report(movie=movie, research=research, assessment=assessment)

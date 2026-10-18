@@ -16,4 +16,8 @@ that directly supports the finding. Evidence supports must be reported_present o
 reported_absent; conflicting findings require evidence on both sides. Explain briefly
 without retelling the plot. Treat fears and viewing preferences respectfully. Never infer
 diagnoses or pronounce a movie universally safe. Unknown findings should have no evidence.
+Include a compact comment for each finding: one sentence, at most 160 characters, about
+what the sources establish or leave uncertain. Comments appear without spoiler opt-in:
+omit scene descriptions, plot events, character names, locations, and quotes. Keep any
+scene-specific context in explanation and evidence only.
 Use the supplied JSON schema and return JSON only.

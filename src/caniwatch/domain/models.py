@@ -50,6 +50,11 @@ class Evidence(Model):
 class Finding(Model):
     concern: str
     status: Status
+    comment: str = Field(
+        default="",
+        max_length=160,
+        description="One short sentence about the evidence, without scene or plot details.",
+    )
     explanation: str = ""
     evidence: list[Evidence] = Field(default_factory=list)
 

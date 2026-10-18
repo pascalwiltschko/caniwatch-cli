@@ -68,10 +68,11 @@ uv run caniwatch terrifier --year 2018 --avoid gore --json --output report.json
 uv run caniwatch terrifier --year 2018 --avoid gore --details
 ```
 
-Default reports omit the synopsis and scene evidence. `--details` reveals them; finding
-labels and source titles can themselves reveal content. JSON goes to stdout, diagnostics
-to stderr. Ambiguous titles prompt for selection; noninteractive runs require a narrower
-title/year match. Reports do not make a universal “safe to watch” determination.
+Default reports include compact evidence comments but omit the synopsis and scene evidence.
+`--details` reveals them; finding labels, comments, and source titles can themselves reveal
+content. JSON goes to stdout, diagnostics to stderr. Ambiguous titles prompt for selection;
+noninteractive runs require a narrower title/year match. Reports do not make a universal
+“safe to watch” determination.
 
 Use `--json --output PATH` to save a complete report atomically: failures leave an existing
 report unchanged and do not create an empty destination. Shell redirection (`> PATH`)

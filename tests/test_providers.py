@@ -192,6 +192,9 @@ def test_ollama_uses_schema_and_only_local_endpoint():
         assert payload["model"] == "gemma4:e4b-it-q4_K_M"
         assert payload["stream"] is False
         assert payload["format"]["properties"]["findings"]
+        comment_schema = payload["format"]["$defs"]["Finding"]["properties"]["comment"]
+        assert comment_schema["maxLength"] == 160
+        assert "Comments appear without spoiler opt-in" in payload["messages"][0]["content"]
         assert "tools" not in payload
         assert "PRIVATE_FEAR" in payload["messages"][1]["content"]
         assessment = Assessment(findings=[Finding(concern="PRIVATE_FEAR", status=Status.UNKNOWN)])
