@@ -6,6 +6,12 @@ The lockfile pins tooling and runtime dependencies. `task check` runs Ruff, ty, 
 `task format` fixes lint/formatting; `task demo` exercises the offline fictional report.
 Pre-commit runs lint/format/type checks; pre-push runs the offline test suite. CI runs all.
 
+After moving the checkout or renaming a parent folder, rebuild the virtual environment:
+run `uv venv --clear`, then `task setup`. Python launchers and Git hooks contain absolute
+paths, so the old environment can fail with `Failed to spawn` or `bad interpreter`.
+If you had activated it in your shell, run `deactivate` before rebuilding and then
+`source .venv/bin/activate` again afterward.
+
 For live use, install [Ollama](https://ollama.com/), run `ollama pull gemma4:e4b`, and start
 the local server. Create TMDB and Tavily developer credentials, copy `.env.example` to
 `.env`, and fill its two credential values locally. Never paste secrets into issues/logs.
